@@ -24,6 +24,8 @@ Open [http://localhost:8080](http://localhost:8080). Configure another location 
 PIRADAR_CONFIG=config/piradar.json ./scripts/run-dev.sh
 ```
 
+Set `"provider": "adsb_lol"` in the local configuration to request live nearby-aircraft positions. Keep `mock` for development, demonstrations and fault isolation. The public adsb.lol service is free and ODbL-licensed, but its operator asks production users to make contact before relying on it.
+
 Run the tests with:
 
 ```bash

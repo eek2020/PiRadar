@@ -11,13 +11,13 @@
 
 ## Clean implementation
 
-The repository now contains the initial application scaffold: a Python service, a mock aircraft-data provider, a browser radar UI, configuration, tests and deployment placeholders.
+The repository now contains the initial application scaffold: a Python service, mock and adsb.lol aircraft-data providers, a browser radar UI, configuration, tests and deployment support.
 The deployment scaffold incorporates the proven Cage, Wayland and Chromium kiosk route from Spike 001.
 
 ## Outstanding
 
 - Validate and calibrate touch input on the target hardware
-- Choose and integrate the first online aircraft-data provider
+- Confirm production usage expectations with the adsb.lol operator
 - Configure production autostart and kiosk session
 - Add the custom boot splash
 - Add watchdog and offline recovery validation

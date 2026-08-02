@@ -15,6 +15,7 @@ class ConfigTests(unittest.TestCase):
         config = Config.load()
         self.assertEqual(config.provider, "mock")
         self.assertEqual(config.range_nm, 60)
+        self.assertEqual(config.refresh_seconds, 8)
 
     def test_file_and_environment_precedence(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -29,6 +30,9 @@ class ConfigTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "home_latitude"):
             Config(home_latitude=91).validate()
 
+    def test_accepts_live_provider(self) -> None:
+        Config(provider="adsb_lol").validate()
+
     def test_public_config_does_not_expose_listener(self) -> None:
         public = Config(host="0.0.0.0", port=9999).public_dict()
         self.assertNotIn("host", public)
@@ -37,4 +41,3 @@ class ConfigTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

@@ -15,8 +15,9 @@
 
 ## Phase 3 — Radar engine
 
-- [ ] Select and integrate an online ADS-B provider
-- [ ] Normalize tracks behind the provider interface
+- [x] Integrate adsb.lol behind the provider interface
+- [x] Normalize tracks behind the internal aircraft contract
+- [ ] Confirm provider production usage and attribution presentation
 - [ ] Add filtering, selection and trail history
 
 ## Phase 4 — Polish
@@ -29,4 +30,3 @@
 
 - [ ] Add RTL-SDR and `readsb` provider
 - [ ] Support provider selection without frontend changes
-

@@ -99,7 +99,17 @@ async function updateAircraft() {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const snapshot = await response.json();
     renderAircraft(snapshot.aircraft);
-    setConnection(snapshot.source === "mock" ? "Mock data" : "Live", "live");
+    if (snapshot.status === "stale") {
+      setConnection("Stale data", "error");
+    } else if (snapshot.status === "offline") {
+      setConnection("Provider offline", "error");
+      if (!snapshot.aircraft.length) {
+        elements.message.hidden = false;
+        elements.message.textContent = "Provider unavailable · retrying";
+      }
+    } else {
+      setConnection(snapshot.source === "mock" ? "Mock data" : "Live", "live");
+    }
   } catch (error) {
     console.error("Aircraft update failed", error);
     setConnection("Reconnecting", "error");
@@ -134,4 +144,3 @@ window.setInterval(() => {
 }, 1000);
 
 start();
-

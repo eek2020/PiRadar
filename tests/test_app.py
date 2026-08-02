@@ -40,6 +40,7 @@ class AppTests(unittest.TestCase):
     def test_aircraft_snapshot(self) -> None:
         snapshot = self.get_json("/api/aircraft")
         self.assertEqual(snapshot["source"], "mock")
+        self.assertEqual(snapshot["status"], "live")
         self.assertGreater(len(snapshot["aircraft"]), 0)
         self.assertIn("callsign", snapshot["aircraft"][0])
 
@@ -57,4 +58,3 @@ class AppTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
