@@ -9,6 +9,8 @@
 - XPT2046 resistive touch enabled and detected through the kernel ADS7846 driver
 - Full-screen geographic map, live aircraft plotting, touch pan/zoom and marker selection proven
 - Display options, aircraft filters, type-specific silhouettes, local trails and a public-domain UK airport layer implemented
+- Persistent enrichment cache and protected in-app credential storage prepared for optional data providers
+- Kiosk cursor hidden across the map and controls
 - Initial branded loading screen created
 - Project workspace created under `/opt/piradar`
 
@@ -24,5 +26,5 @@ The deployment scaffold incorporates the proven Cage, Wayland and Chromium kiosk
 - Configure production autostart and kiosk session
 - Add the custom boot splash
 - Add watchdog and offline recovery validation
-- Extend display options into full appliance settings
+- Implement and explicitly enable optional paid-provider adapters only if a service is selected later
 - Package and test a reproducible release image

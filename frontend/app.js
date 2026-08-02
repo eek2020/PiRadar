@@ -34,6 +34,7 @@ const elements = {
   optionsControl: document.querySelector("#options-control"),
   filters: document.querySelector("#filters"),
   filterControl: document.querySelector("#filter-control"),
+  services: document.querySelector("#services"),
   showLabels: document.querySelector("#show-labels"),
   showAirports: document.querySelector("#show-airports"),
   attribution: document.querySelector("#attribution"),
@@ -238,6 +239,7 @@ function selectAircraft(hex) {
   if (!selected) return;
   closeOptions();
   closeFilters();
+  closeServices();
   populateDetail(selected, true);
   elements.detail.hidden = false;
   renderAircraft(state.latest);
@@ -422,6 +424,7 @@ function applyPreferences() {
 function openOptions() {
   clearSelection();
   closeFilters();
+  closeServices();
   elements.options.hidden = false;
   elements.optionsControl.setAttribute("aria-expanded", "true");
 }
@@ -434,6 +437,7 @@ function closeOptions() {
 function openFilters() {
   clearSelection();
   closeOptions();
+  closeServices();
   elements.filters.hidden = false;
   elements.filterControl.setAttribute("aria-expanded", "true");
 }
@@ -441,6 +445,70 @@ function openFilters() {
 function closeFilters() {
   elements.filters.hidden = true;
   elements.filterControl.setAttribute("aria-expanded", "false");
+}
+
+function openServices() {
+  clearSelection();
+  closeOptions();
+  closeFilters();
+  elements.services.hidden = false;
+  loadServiceStatus();
+}
+
+function closeServices() {
+  elements.services.hidden = true;
+}
+
+function renderServiceStatus(services) {
+  document.querySelectorAll(".service-card").forEach((card) => {
+    const configured = Boolean(services?.[card.dataset.service]?.configured);
+    card.dataset.configured = String(configured);
+    card.querySelector(".service-status").textContent = configured ? "Configured" : "Not configured";
+    card.querySelectorAll("input").forEach((input) => {
+      input.value = "";
+      input.placeholder = configured ? "Stored · enter to replace" : "Enter credential";
+    });
+  });
+}
+
+async function loadServiceStatus() {
+  try {
+    const response = await fetch("/api/settings/services", { cache: "no-store" });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const payload = await response.json();
+    renderServiceStatus(payload.services);
+  } catch (error) {
+    document.querySelectorAll(".service-status").forEach((status) => { status.textContent = "Unavailable"; });
+  }
+}
+
+async function updateService(card, clear = false) {
+  const message = card.querySelector(".service-message");
+  const credentials = {};
+  card.querySelectorAll("input").forEach((input) => {
+    credentials[input.dataset.field] = clear ? "" : input.value.trim();
+  });
+  if (!clear && Object.values(credentials).some((value) => !value)) {
+    message.dataset.state = "error";
+    message.textContent = "Enter every field before saving.";
+    return;
+  }
+  message.dataset.state = "";
+  message.textContent = clear ? "Clearing…" : "Saving locally…";
+  try {
+    const response = await fetch("/api/settings/services", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ service: card.dataset.service, credentials }),
+    });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+    renderServiceStatus(payload.services);
+    message.textContent = clear ? "Credential removed." : "Saved securely on this Pi.";
+  } catch (error) {
+    message.dataset.state = "error";
+    message.textContent = error.message || "Could not save credential.";
+  }
 }
 
 async function updateAircraft() {
@@ -497,6 +565,11 @@ document.querySelector("#close-detail").addEventListener("click", clearSelection
 document.querySelector("#home-control").addEventListener("click", centerHome);
 elements.optionsControl.addEventListener("click", () => elements.options.hidden ? openOptions() : closeOptions());
 document.querySelector("#close-options").addEventListener("click", closeOptions);
+document.querySelector("#open-services").addEventListener("click", openServices);
+document.querySelector("#close-services").addEventListener("click", closeServices);
+document.querySelectorAll(".service-card [data-action]").forEach((button) => {
+  button.addEventListener("click", () => updateService(button.closest(".service-card"), button.dataset.action === "clear"));
+});
 elements.filterControl.addEventListener("click", () => elements.filters.hidden ? openFilters() : closeFilters());
 document.querySelector("#close-filters").addEventListener("click", closeFilters);
 document.querySelectorAll(".choice-row button").forEach((button) => {

@@ -17,6 +17,7 @@ class Config:
     provider: str = "mock"
     refresh_seconds: int = 8
     map_tile_url: str = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+    state_dir: str = "/var/lib/piradar"
 
     @classmethod
     def load(cls, path: str | Path | None = None) -> "Config":
@@ -35,6 +36,7 @@ class Config:
             "provider": os.getenv("PIRADAR_PROVIDER"),
             "refresh_seconds": os.getenv("PIRADAR_REFRESH_SECONDS"),
             "map_tile_url": os.getenv("PIRADAR_MAP_TILE_URL"),
+            "state_dir": os.getenv("PIRADAR_STATE_DIR"),
         }
         values.update({key: value for key, value in environment.items() if value is not None})
 
@@ -66,10 +68,12 @@ class Config:
             token in self.map_tile_url for token in ("{z}", "{x}", "{y}")
         ):
             raise ValueError("map_tile_url must be an HTTPS slippy-map URL template")
+        if not Path(self.state_dir).is_absolute():
+            raise ValueError("state_dir must be an absolute path")
 
     def public_dict(self) -> dict[str, Any]:
         return {
             key: value
             for key, value in asdict(self).items()
-            if key not in {"host", "port"}
+            if key not in {"host", "port", "state_dir"}
         }

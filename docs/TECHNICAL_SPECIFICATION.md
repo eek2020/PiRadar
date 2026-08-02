@@ -17,7 +17,9 @@ The frontend vendors Leaflet 1.9.4 locally and reads its raster tile URL templat
 
 The airport overlay is generated from the public-domain OurAirports dataset. The prototype bundle contains only coded, open UK small, medium and large airports. The browser filters that compact file to the configured vicinity; small-airport markers appear only at closer zoom levels. This UK subset must be generalized before a non-UK deployment.
 
-The `adsb_lol` adapter requests the documented nearby-aircraft endpoint at no more than the configured refresh interval. Successful results are cached; a later upstream failure returns the last snapshot as stale rather than clearing the display. Selecting an aircraft may request adsb.lol's route endpoint; enrichment is cached for one hour and route lookup failure never interrupts position updates. The mock adapter remains the deterministic offline development source.
+The `adsb_lol` adapter requests the documented nearby-aircraft endpoint at no more than the configured refresh interval. Successful results are cached; a later upstream failure returns the last snapshot as stale rather than clearing the display. Selecting an aircraft may request adsb.lol's route endpoint; route-bearing enrichment is persisted for six hours and a negative lookup for two minutes, keyed by UTC date and aircraft identity. Route lookup failure never interrupts position updates. The mock adapter remains the deterministic offline development source.
+
+Runtime state lives in `/var/lib/piradar`, created by systemd with mode `0700`. Enrichment is stored in an owner-only SQLite database so useful results survive browser and service restarts without treating live positions as history. Optional FlightAware, Flightradar24 and Amadeus credentials are stored in a separate owner-only JSON file. The settings API returns only field names and configured status, never stored values. These provider connectors remain inactive until explicitly implemented and enabled; entering credentials alone cannot generate paid API calls.
 
 ## Aircraft contract
 
@@ -27,7 +29,7 @@ Aircraft class is inferred in the browser from ADS-B emitter category first and 
 
 ## Configuration precedence
 
-Built-in safe defaults are overridden by a JSON file selected with `PIRADAR_CONFIG`, then by individual `PIRADAR_*` environment variables. Secrets will be referenced through environment or a protected file and will never be returned from `/api/config`.
+Built-in safe defaults are overridden by a JSON file selected with `PIRADAR_CONFIG`, then by individual `PIRADAR_*` environment variables. The protected credential store is changed through the loopback application API and will never be returned from `/api/config` or any settings response.
 
 ## Reliability direction
 

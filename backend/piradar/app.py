@@ -13,17 +13,20 @@ from urllib.parse import unquote, urlparse
 from piradar import __version__
 from piradar.config import Config
 from piradar.providers import AdsbLolProvider, AircraftProvider, MockAircraftProvider
+from piradar.storage import CredentialsStore, EnrichmentCache
 
 
 def build_provider(config: Config) -> AircraftProvider:
     if config.provider == "mock":
         return MockAircraftProvider(config.home_latitude, config.home_longitude)
     if config.provider == "adsb_lol":
+        cache = EnrichmentCache(Path(config.state_dir) / "enrichment.sqlite3")
         return AdsbLolProvider(
             config.home_latitude,
             config.home_longitude,
             config.range_nm,
             config.refresh_seconds,
+            cache=cache,
         )
     raise ValueError(f"unsupported provider: {config.provider}")
 
@@ -32,6 +35,7 @@ def build_handler(
     config: Config,
     provider: AircraftProvider,
     frontend_dir: Path,
+    credentials_store: CredentialsStore,
 ) -> Type[BaseHTTPRequestHandler]:
     class PiRadarHandler(BaseHTTPRequestHandler):
         server_version = f"PiRadar/{__version__}"
@@ -51,6 +55,9 @@ def build_handler(
                 return
             if path == "/api/config":
                 self._json(config.public_dict())
+                return
+            if path == "/api/settings/services":
+                self._json({"services": credentials_store.summary()})
                 return
             if path == "/api/aircraft":
                 aircraft = [track.to_dict() for track in provider.aircraft()]
@@ -79,6 +86,23 @@ def build_handler(
                 return
             self._static(path)
 
+        def do_POST(self) -> None:  # noqa: N802 - stdlib handler API
+            path = urlparse(self.path).path
+            if path != "/api/settings/services":
+                self._json({"error": "not found"}, HTTPStatus.NOT_FOUND)
+                return
+            try:
+                payload = self._read_json()
+                service = payload.get("service")
+                credentials = payload.get("credentials")
+                if not isinstance(service, str) or not isinstance(credentials, dict):
+                    raise ValueError("service and credentials are required")
+                services = credentials_store.replace(service, credentials)
+            except ValueError as error:
+                self._json({"error": str(error)}, HTTPStatus.BAD_REQUEST)
+                return
+            self._json({"services": services})
+
         def log_message(self, format: str, *args: Any) -> None:
             print(f"{self.address_string()} - {format % args}")
 
@@ -91,6 +115,21 @@ def build_handler(
             self.send_header("X-Content-Type-Options", "nosniff")
             self.end_headers()
             self.wfile.write(body)
+
+        def _read_json(self) -> dict[str, Any]:
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+            except ValueError as error:
+                raise ValueError("invalid content length") from error
+            if length <= 0 or length > 16_384:
+                raise ValueError("request body must be between 1 and 16384 bytes")
+            try:
+                payload = json.loads(self.rfile.read(length))
+            except (json.JSONDecodeError, UnicodeDecodeError) as error:
+                raise ValueError("invalid JSON") from error
+            if not isinstance(payload, dict):
+                raise ValueError("JSON body must be an object")
+            return payload
 
         def _static(self, request_path: str) -> None:
             relative = "index.html" if request_path == "/" else unquote(request_path.lstrip("/"))
@@ -120,6 +159,7 @@ def create_server(
     config: Config,
     provider: AircraftProvider | None = None,
     frontend_dir: Path | None = None,
+    credentials_store: CredentialsStore | None = None,
 ) -> ThreadingHTTPServer:
     configured_frontend = os.getenv("PIRADAR_FRONTEND_DIR")
     resolved_frontend = frontend_dir or (
@@ -127,7 +167,8 @@ def create_server(
         if configured_frontend
         else Path(__file__).resolve().parents[2] / "frontend"
     )
-    handler = build_handler(config, provider or build_provider(config), resolved_frontend)
+    resolved_credentials = credentials_store or CredentialsStore(Path(config.state_dir) / "credentials.json")
+    handler = build_handler(config, provider or build_provider(config), resolved_frontend, resolved_credentials)
     return ThreadingHTTPServer((config.host, config.port), handler)
 
 

@@ -46,6 +46,36 @@
             <div class="altitude-key"><span>Low</span><i></i><i></i><i></i><i></i><span>High</span></div>
           </fieldset>
           <label class="switch-row" for="show-labels"><span><strong>Callsign labels</strong><small>Show names beside aircraft</small></span><input id="show-labels" type="checkbox"><i></i></label>
+          <button id="open-services" class="settings-link" type="button"><span><strong>Data services</strong><small>Optional API credentials</small></span><span aria-hidden="true">›</span></button>
+        </aside>
+
+        <aside id="services" class="services" hidden>
+          <div class="panel-heading">
+            <div><p class="eyebrow">Settings</p><h2>Data services</h2></div>
+            <button id="close-services" class="panel-close" type="button" aria-label="Close data services">×</button>
+          </div>
+          <p class="services-intro">Credentials stay on this Pi. These optional connectors are prepared but disabled, so saving a key will not make paid calls.</p>
+
+          <section class="service-card" data-service="flightaware">
+            <div class="service-title"><strong>FlightAware AeroAPI</strong><span class="service-status">Checking…</span></div>
+            <label>API key<input type="password" data-field="api_key" autocomplete="off" spellcheck="false"></label>
+            <div class="service-actions"><button type="button" data-action="save">Save</button><button type="button" data-action="clear">Clear</button></div>
+            <p class="service-message" aria-live="polite"></p>
+          </section>
+
+          <section class="service-card" data-service="flightradar24">
+            <div class="service-title"><strong>Flightradar24 API</strong><span class="service-status">Checking…</span></div>
+            <label>API token<input type="password" data-field="api_token" autocomplete="off" spellcheck="false"></label>
+            <div class="service-actions"><button type="button" data-action="save">Save</button><button type="button" data-action="clear">Clear</button></div>
+            <p class="service-message" aria-live="polite"></p>
+          </section>
+
+          <section class="service-card" data-service="amadeus">
+            <div class="service-title"><strong>Amadeus Self-Service</strong><span class="service-status">Checking…</span></div>
+            <div class="service-fields"><label>Client ID<input type="password" data-field="client_id" autocomplete="off" spellcheck="false"></label><label>Client secret<input type="password" data-field="client_secret" autocomplete="off" spellcheck="false"></label></div>
+            <div class="service-actions"><button type="button" data-action="save">Save</button><button type="button" data-action="clear">Clear</button></div>
+            <p class="service-message" aria-live="polite"></p>
+          </section>
         </aside>
 
         <aside id="filters" class="filters" hidden>

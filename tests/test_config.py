@@ -38,6 +38,10 @@ class ConfigTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "map_tile_url"):
             Config(map_tile_url="http://tiles.example/{z}/{x}/{y}.png").validate()
 
+    def test_rejects_relative_state_directory(self) -> None:
+        with self.assertRaisesRegex(ValueError, "state_dir"):
+            Config(state_dir="state").validate()
+
     def test_public_config_does_not_expose_listener(self) -> None:
         public = Config(host="0.0.0.0", port=9999).public_dict()
         self.assertNotIn("host", public)

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import threading
 import time
+from datetime import UTC, datetime
 from collections.abc import Callable
 from typing import Any
 from urllib.request import Request, urlopen
@@ -10,6 +11,7 @@ from urllib.parse import quote
 
 from piradar.aircraft_types import describe_aircraft_type, describe_operator
 from piradar.models import Aircraft
+from piradar.storage import EnrichmentCache
 
 
 class AdsbLolProvider:
@@ -26,6 +28,7 @@ class AdsbLolProvider:
         *,
         opener: Callable[..., Any] = urlopen,
         monotonic: Callable[[], float] = time.monotonic,
+        cache: EnrichmentCache | None = None,
     ) -> None:
         self.url = (
             f"https://api.adsb.lol/v2/lat/{home_latitude}"
@@ -34,6 +37,7 @@ class AdsbLolProvider:
         self.refresh_seconds = refresh_seconds
         self._opener = opener
         self._monotonic = monotonic
+        self._cache = cache
         self._lock = threading.Lock()
         self._aircraft: list[Aircraft] = []
         self._last_attempt = float("-inf")
@@ -123,12 +127,25 @@ class AdsbLolProvider:
             return None
 
         cache_key = f"{track.hex}:{track.callsign}"
+        persistent_key = ":".join(
+            (
+                datetime.now(UTC).date().isoformat(),
+                track.hex,
+                track.registration or "-",
+                track.callsign,
+            )
+        )
         now = self._monotonic()
         cached = self._details_cache.get(cache_key)
         if cached:
             cache_seconds = 3600 if cached[1].get("route") else 20
             if now - cached[0] < cache_seconds:
                 return dict(cached[1])
+        if self._cache:
+            persistent = self._cache.get("flight_details", persistent_key)
+            if persistent is not None:
+                self._details_cache[cache_key] = (now, persistent)
+                return dict(persistent)
 
         manufacturer, model = describe_aircraft_type(track.aircraft_type)
         details: dict[str, Any] = {
@@ -181,6 +198,13 @@ class AdsbLolProvider:
                 }
 
         self._details_cache[cache_key] = (now, details)
+        if self._cache:
+            self._cache.set(
+                "flight_details",
+                persistent_key,
+                details,
+                ttl_seconds=21600 if details.get("route") else 120,
+            )
         return dict(details)
 
     @staticmethod

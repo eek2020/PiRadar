@@ -10,6 +10,7 @@ Group=piradar
 Environment=PIRADAR_CONFIG=/etc/piradar/piradar.json
 Environment=PIRADAR_FRONTEND_DIR=/opt/piradar/frontend
 Environment=PYTHONPATH=/opt/piradar/backend
+Environment=PIRADAR_STATE_DIR=/var/lib/piradar
 ExecStart=/usr/bin/python3 -m piradar
 Restart=on-failure
 RestartSec=3
@@ -17,6 +18,9 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
+StateDirectory=piradar
+StateDirectoryMode=0700
+UMask=0077
 
 [Install]
 WantedBy=multi-user.target
