@@ -14,10 +14,10 @@ if ! id piradar >/dev/null 2>&1; then
   useradd --system --home-dir "$install_dir" --shell /usr/sbin/nologin piradar
 fi
 
-python3 -m venv "$install_dir/.venv"
-"$install_dir/.venv/bin/pip" install --no-build-isolation "$source_dir"
-install -d -m 0755 "$install_dir/frontend"
-cp -R "$source_dir/frontend/." "$install_dir/frontend/"
+install -d -m 0755 "$install_dir"
+if [ "$source_dir" != "$install_dir" ]; then
+  cp -R "$source_dir/backend" "$source_dir/frontend" "$install_dir/"
+fi
 install -d -m 0755 "$config_dir"
 if [ ! -e "$config_dir/piradar.json" ]; then
   install -m 0644 "$source_dir/config/piradar.example.json" "$config_dir/piradar.json"

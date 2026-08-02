@@ -2,10 +2,12 @@
 
 ## Runtime
 
-- Python 3.11 or newer
+- Python 3.11 or newer, using the operating-system interpreter
 - A dependency-light HTTP process managed by systemd
 - Chromium in kiosk mode, pointed at the loopback service
 - JSON configuration in `/etc/piradar/piradar.json` for deployment
+
+The initial runtime has no third-party Python dependencies, so the appliance service runs directly from `/opt/piradar/backend` without a virtual environment or package download.
 
 ## Boundaries
 
@@ -22,4 +24,3 @@ Built-in safe defaults are overridden by a JSON file selected with `PIRADAR_CONF
 ## Reliability direction
 
 The service exposes health separately from aircraft data. systemd restarts unexpected exits. The UI applies a freshness threshold to snapshots and retains a clear status indicator throughout provider failures.
-

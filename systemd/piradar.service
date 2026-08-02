@@ -9,7 +9,8 @@ User=piradar
 Group=piradar
 Environment=PIRADAR_CONFIG=/etc/piradar/piradar.json
 Environment=PIRADAR_FRONTEND_DIR=/opt/piradar/frontend
-ExecStart=/opt/piradar/.venv/bin/piradar
+Environment=PYTHONPATH=/opt/piradar/backend
+ExecStart=/usr/bin/python3 -m piradar
 Restart=on-failure
 RestartSec=3
 NoNewPrivileges=true
