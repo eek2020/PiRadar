@@ -20,6 +20,7 @@
 - Filter by each aircraft class and altitude band; confirm shown/total counts and reset behaviour
 - Select a moving aircraft and confirm its green trail grows without blocking marker selection
 - Toggle airports and confirm OXF/EGTK and nearby coded airfields appear at appropriate zoom levels
+- Select several airport markers and confirm the airfield detail card opens above all map layers
 - Stop the backend and verify the offline state
 - Save, replace and clear a test data-service credential; verify only configured status is shown
 - Confirm no configured optional provider is contacted while its connector remains disabled

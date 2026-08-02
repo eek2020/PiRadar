@@ -12,7 +12,7 @@
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
-* { box-sizing: border-box; cursor: none !important; }
+* { box-sizing: border-box; cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'%3E%3C/svg%3E") 0 0, none !important; }
 
 html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: var(--bg); }
 body { color: var(--text); }
@@ -51,32 +51,36 @@ button { font: inherit; }
 .aircraft-marker path { fill: var(--aircraft-color, var(--amber)); stroke: rgba(24,25,21,.9); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .aircraft-marker.glider path { stroke-width: .65; }
 .aircraft-marker.rotorcraft path { stroke-width: .8; }
+.aircraft-marker .helicopter-body, .aircraft-marker .helicopter-tail { fill: var(--aircraft-color, var(--amber)); stroke: rgba(24,25,21,.95); stroke-width: 1; }
+.aircraft-marker .helicopter-rotor { fill: none; stroke: var(--aircraft-color, var(--amber)); stroke-width: 2; stroke-linecap: round; filter: drop-shadow(0 1px 0 rgba(0,0,0,.95)); }
+.aircraft-marker .helicopter-hub { fill: #f7fff9; stroke: rgba(24,25,21,.95); stroke-width: 1; }
 .aircraft-marker.selected svg { width: 38px; height: 38px; margin: -4px; filter: drop-shadow(0 0 5px rgba(255,197,110,.9)); }
 .aircraft-label { position: absolute; top: 18px; left: 22px; padding: 2px 4px; border-radius: 3px; background: rgba(5,14,17,.78); color: white; font: 9px ui-monospace, monospace; letter-spacing: .02em; white-space: nowrap; }
 .home-marker { width: 18px !important; height: 18px !important; margin: -9px 0 0 -9px !important; border: 2px solid white; border-radius: 50%; background: #3387c9; box-shadow: 0 0 0 2px rgba(0,0,0,.45); }
 .home-marker::after { content: ""; position: absolute; inset: 4px; border-radius: 50%; background: white; }
-.airport-marker { width: 30px !important; height: 38px !important; margin: -34px 0 0 -15px !important; background: transparent; }
-.airport-marker .pin { position: absolute; left: 4px; bottom: 0; width: 22px; height: 30px; border: 2px solid white; border-radius: 13px 13px 13px 2px; background: #267db9; box-shadow: 0 2px 4px rgba(0,0,0,.55); transform: rotate(-45deg); }
-.airport-marker .pin::after { content: ""; position: absolute; inset: 6px; border: 1px solid white; border-radius: 50%; }
-.airport-marker .tower { position: absolute; z-index: 1; left: 11px; bottom: 12px; width: 8px; height: 11px; border: 1px solid white; border-width: 0 1px 1px; }
-.airport-marker .tower::before { content: ""; position: absolute; left: -2px; top: -3px; width: 10px; height: 3px; border: 1px solid white; }
-.airport-marker .code { position: absolute; left: 34px; bottom: 8px; padding: 2px 4px; border-radius: 3px; background: rgba(5,14,17,.78); color: white; font: 9px ui-monospace, monospace; white-space: nowrap; }
-.airport-marker.small .pin { background: #3a687e; }
-.home-control { position: absolute; z-index: 500; top: 12px; left: 12px; width: 46px; height: 46px; padding: 0; border: 1px solid rgba(255,255,255,.35); border-radius: 50%; background: rgba(8,16,18,.88); box-shadow: 0 4px 18px rgba(0,0,0,.35); color: white; font-size: 27px; line-height: 44px; cursor: pointer; }
+.airport-marker { width: 34px !important; height: 40px !important; margin: -36px 0 0 -17px !important; background: transparent; }
+.airport-marker svg { width: 30px; height: 38px; overflow: visible; filter: drop-shadow(0 2px 2px rgba(0,0,0,.65)); }
+.airport-marker .airport-pin { fill: #267db9; stroke: white; stroke-width: 1.5; }
+.airport-marker .airport-tower { fill: white; stroke: none; }
+.airport-marker.small .airport-pin { fill: #3a687e; }
+.airport-marker.selected svg { transform: scale(1.15); transform-origin: 50% 85%; filter: drop-shadow(0 0 5px rgba(125,255,213,.9)); }
+.airport-marker .code { position: absolute; left: 31px; bottom: 8px; padding: 2px 4px; border-radius: 3px; background: rgba(5,14,17,.82); color: white; font: 9px ui-monospace, monospace; white-space: nowrap; }
+.home-control { position: absolute; z-index: 1000; top: 12px; left: 12px; width: 46px; height: 46px; padding: 0; border: 1px solid rgba(255,255,255,.35); border-radius: 50%; background: rgba(8,16,18,.88); box-shadow: 0 4px 18px rgba(0,0,0,.35); color: white; font-size: 27px; line-height: 44px; cursor: pointer; touch-action: manipulation; }
 .home-control:focus, .home-control:hover { outline: 2px solid var(--mint); outline-offset: 2px; }
-.options-control { position: absolute; z-index: 500; top: 12px; right: 12px; width: 46px; height: 46px; padding: 0; border: 1px solid rgba(255,255,255,.35); border-radius: 50%; background: rgba(8,16,18,.88); box-shadow: 0 4px 18px rgba(0,0,0,.35); color: white; font-size: 23px; line-height: 44px; cursor: pointer; }
+.options-control { position: absolute; z-index: 1000; top: 12px; right: 12px; width: 46px; height: 46px; padding: 0; border: 1px solid rgba(255,255,255,.35); border-radius: 50%; background: rgba(8,16,18,.88); box-shadow: 0 4px 18px rgba(0,0,0,.35); color: white; font-size: 23px; line-height: 44px; cursor: pointer; touch-action: manipulation; }
 .options-control:focus, .options-control:hover { outline: 2px solid var(--mint); outline-offset: 2px; }
-.filter-control { position: absolute; z-index: 500; top: 12px; right: 68px; width: 46px; height: 46px; padding: 11px; border: 1px solid rgba(255,255,255,.35); border-radius: 50%; background: rgba(8,16,18,.88); box-shadow: 0 4px 18px rgba(0,0,0,.35); color: white; cursor: pointer; }
+.filter-control { position: absolute; z-index: 1000; top: 12px; right: 68px; width: 46px; height: 46px; padding: 11px; border: 1px solid rgba(255,255,255,.35); border-radius: 50%; background: rgba(8,16,18,.88); box-shadow: 0 4px 18px rgba(0,0,0,.35); color: white; cursor: pointer; touch-action: manipulation; }
 .filter-control svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-linejoin: round; stroke-width: 1.8; }
 .filter-control[data-active="true"] { border-color: var(--mint); color: var(--mint); box-shadow: 0 0 0 2px rgba(125,255,213,.15), 0 4px 18px rgba(0,0,0,.35); }
 .filter-control:focus, .filter-control:hover { outline: 2px solid var(--mint); outline-offset: 2px; }
 .message { position: absolute; inset: 50% auto auto 50%; transform: translate(-50%, -50%); padding: 10px 14px; border: 1px solid var(--line); background: rgba(5,14,17,.9); color: var(--muted); font-size: 12px; letter-spacing: .05em; text-transform: uppercase; }
 .message[hidden] { display: none; }
-.detail, .options, .filters, .services { position: absolute; z-index: 600; top: 10px; right: 10px; border: 1px solid rgba(125,255,213,.35); border-radius: 12px; background: rgba(7,16,20,.96); box-shadow: 0 12px 36px rgba(0,0,0,.5); }
+.detail, .airport-detail, .options, .filters, .services { position: absolute; z-index: 1100; top: 10px; right: 10px; border: 1px solid rgba(125,255,213,.35); border-radius: 12px; background: rgba(7,16,20,.96); box-shadow: 0 12px 36px rgba(0,0,0,.5); }
 .detail { width: 350px; padding: 14px 16px 15px; }
+.airport-detail { width: 320px; padding: 14px 16px 16px; }
 .options, .filters { width: 290px; padding: 14px 16px 16px; }
 .services { width: 430px; max-height: calc(100% - 20px); padding: 14px 16px 16px; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; }
-.detail[hidden], .options[hidden], .filters[hidden], .services[hidden] { display: none; }
+.detail[hidden], .airport-detail[hidden], .options[hidden], .filters[hidden], .services[hidden] { display: none; }
 .panel-heading { display: flex; align-items: flex-start; justify-content: space-between; min-height: 45px; gap: 12px; }
 .panel-heading .eyebrow { margin: 0; }
 .panel-heading h2 { margin: 3px 0 0; color: var(--mint); font: 23px ui-monospace, monospace; }
@@ -96,6 +100,13 @@ button { font: inherit; }
 .telemetry div { min-width: 0; }
 .telemetry dt { color: var(--muted); font-size: 8px; text-transform: uppercase; }
 .telemetry dd { margin: 3px 0 0; overflow: hidden; font: 11px ui-monospace, monospace; text-overflow: ellipsis; white-space: nowrap; }
+.airport-identity { margin: 8px 0 12px; padding: 10px; border-radius: 7px; background: rgba(125,255,213,.06); }
+.airport-identity strong, .airport-identity span { display: block; }
+.airport-identity strong { font-size: 14px; }
+.airport-identity span { margin-top: 4px; color: var(--muted); font: 10px ui-monospace, monospace; }
+.airport-telemetry { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 0; }
+.airport-telemetry dt { color: var(--muted); font-size: 8px; text-transform: uppercase; }
+.airport-telemetry dd { margin: 3px 0 0; font: 11px ui-monospace, monospace; }
 .options fieldset, .filters fieldset { margin: 9px 0 16px; padding: 0; border: 0; }
 .options legend, .filters legend { margin-bottom: 6px; color: var(--muted); font-size: 9px; letter-spacing: .08em; text-transform: uppercase; }
 .choice-row { display: grid; grid-template-columns: 1fr 1fr; padding: 3px; border: 1px solid rgba(125,255,213,.16); border-radius: 8px; background: rgba(255,255,255,.03); }
@@ -148,5 +159,6 @@ button { font: inherit; }
   .info-rail { gap: 12px; }
   .caveat { display: none; }
   .detail { right: 8px; left: 8px; width: auto; }
+  .airport-detail { right: 8px; left: 8px; width: auto; }
   .services { right: 8px; left: 8px; width: auto; }
 }

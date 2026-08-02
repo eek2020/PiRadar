@@ -9,6 +9,7 @@ const state = {
   history: new Map(),
   selectedTrail: null,
   selectedHex: null,
+  selectedAirport: null,
   latest: [],
   preferences: {
     mapStyle: "colour",
@@ -35,6 +36,7 @@ const elements = {
   filters: document.querySelector("#filters"),
   filterControl: document.querySelector("#filter-control"),
   services: document.querySelector("#services"),
+  airportDetail: document.querySelector("#airport-detail"),
   showLabels: document.querySelector("#show-labels"),
   showAirports: document.querySelector("#show-airports"),
   attribution: document.querySelector("#attribution"),
@@ -69,7 +71,10 @@ function initializeMap() {
     },
   ).addTo(state.map);
   state.airportLayer = L.layerGroup().addTo(state.map);
-  state.map.on("click", clearSelection);
+  state.map.on("click", () => {
+    clearSelection();
+    closeAirportDetail();
+  });
   state.map.on("zoomend", renderAirports);
   centerHome();
 }
@@ -118,10 +123,19 @@ function aircraftClass(track) {
 
 function aircraftPath(kind) {
   if (kind === "glider") return "M15 2 L16 14 L29 17 L29 19 L16 17 L16 25 L20 28 L20 29 L15 27 L10 29 L10 28 L14 25 L14 17 L1 19 L1 17 L14 14 Z";
-  if (kind === "rotorcraft") return "M4 7 L14 7 L14 3 L16 3 L16 7 L27 7 L27 9 L17 9 L20 14 L20 20 L26 24 L26 26 L18 23 L16 28 L13 28 L12 22 L7 21 L4 17 L5 12 L12 10 L4 9 Z";
   if (kind === "light") return "M15 2 L17 12 L26 16 L26 18 L17 17 L17 23 L22 26 L22 28 L15 26 L8 28 L8 26 L13 23 L13 17 L4 18 L4 16 L13 12 Z";
   if (kind === "other") return "M15 2 L18 12 L26 16 L26 19 L18 17 L18 24 L21 27 L21 29 L15 26 L9 29 L9 27 L12 24 L12 17 L4 19 L4 16 L12 12 Z";
   return "M15 1 L18 11 L28 16 L28 19 L18 17 L18 24 L22 27 L22 29 L15 26 L8 29 L8 27 L12 24 L12 17 L2 19 L2 16 L12 11 Z";
+}
+
+function aircraftMarkup(kind) {
+  if (kind !== "rotorcraft") return `<path class="airframe" d="${aircraftPath(kind)}"/>`;
+  return `
+    <path class="helicopter-body" d="M15 7c-3 0-5 3-5 7v6c0 3 2 5 4 6v3h2v-3c2-1 4-3 4-6v-6c0-4-2-7-5-7z"/>
+    <path class="helicopter-tail" d="M14 25h2v4h5v1H9v-1h5z"/>
+    <path class="helicopter-rotor" d="M2 10h26M15 2v16"/>
+    <circle class="helicopter-hub" cx="15" cy="10" r="2"/>
+  `;
 }
 
 function aircraftIcon(track, selected) {
@@ -134,7 +148,7 @@ function aircraftIcon(track, selected) {
     className: `aircraft-marker ${kind}${selected ? " selected" : ""}`,
     iconSize: [30, 30],
     iconAnchor: [15, 15],
-    html: `<svg viewBox="0 0 30 30" aria-hidden="true" style="--aircraft-color:${altitudeColour(track)};transform:rotate(${rotation}deg)"><path d="${aircraftPath(kind)}"/></svg>${label}`,
+    html: `<svg viewBox="0 0 30 30" aria-hidden="true" style="--aircraft-color:${altitudeColour(track)};transform:rotate(${rotation}deg)">${aircraftMarkup(kind)}</svg>${label}`,
   });
 }
 
@@ -240,6 +254,7 @@ function selectAircraft(hex) {
   closeOptions();
   closeFilters();
   closeServices();
+  closeAirportDetail();
   populateDetail(selected, true);
   elements.detail.hidden = false;
   renderAircraft(state.latest);
@@ -323,11 +338,40 @@ async function loadAircraftDetails(hex, attempt = 0) {
 function airportIcon(airport) {
   const code = airport.iata || airport.icao;
   return L.divIcon({
-    className: `airport-marker ${airport.type}`,
-    iconSize: [30, 38],
-    iconAnchor: [15, 34],
-    html: `<span class="pin"></span><span class="tower"></span><span class="code">${escapeHtml(code)}</span>`,
+    className: `airport-marker ${airport.type}${state.selectedAirport === code ? " selected" : ""}`,
+    iconSize: [34, 40],
+    iconAnchor: [17, 36],
+    html: `<svg viewBox="0 0 30 38" aria-hidden="true"><path class="airport-pin" d="M15 1C7 1 2 7 2 15c0 9 13 21 13 21s13-12 13-21C28 7 23 1 15 1z"/><path class="airport-tower" d="M9 10h12v4h-2l2 11H9l2-11H9zm3 4-1 8h8l-1-8zM8 25h14v2H8z"/></svg><span class="code">${escapeHtml(code)}</span>`,
   });
+}
+
+function airportTypeLabel(type) {
+  if (type === "large") return "Large airport";
+  if (type === "medium") return "Regional airport";
+  return "Local airfield";
+}
+
+function selectAirport(airport) {
+  const code = airport.iata || airport.icao;
+  clearSelection();
+  closeOptions();
+  closeFilters();
+  closeServices();
+  state.selectedAirport = code;
+  document.querySelector("#airport-code").textContent = code;
+  document.querySelector("#airport-name").textContent = airport.name;
+  document.querySelector("#airport-identifiers").textContent = [airport.iata, airport.icao].filter(Boolean).join(" · ");
+  document.querySelector("#airport-type").textContent = airportTypeLabel(airport.type);
+  document.querySelector("#airport-distance").textContent = `${distanceFromHomeCoordinates(airport.latitude, airport.longitude).toFixed(1)} NM`;
+  elements.airportDetail.hidden = false;
+  renderAirports();
+}
+
+function closeAirportDetail() {
+  if (!state.selectedAirport && elements.airportDetail.hidden) return;
+  state.selectedAirport = null;
+  elements.airportDetail.hidden = true;
+  if (state.airportLayer) renderAirports();
 }
 
 function renderAirports() {
@@ -341,9 +385,10 @@ function renderAirports() {
       L.marker([airport.latitude, airport.longitude], {
         icon: airportIcon(airport),
         keyboard: false,
+        bubblingMouseEvents: false,
         title: `${airport.iata || airport.icao} · ${airport.name}`,
         zIndexOffset: -500,
-      }).addTo(state.airportLayer);
+      }).on("click", () => selectAirport(airport)).addTo(state.airportLayer);
     });
 }
 
@@ -423,6 +468,7 @@ function applyPreferences() {
 
 function openOptions() {
   clearSelection();
+  closeAirportDetail();
   closeFilters();
   closeServices();
   elements.options.hidden = false;
@@ -436,6 +482,7 @@ function closeOptions() {
 
 function openFilters() {
   clearSelection();
+  closeAirportDetail();
   closeOptions();
   closeServices();
   elements.filters.hidden = false;
@@ -449,6 +496,7 @@ function closeFilters() {
 
 function openServices() {
   clearSelection();
+  closeAirportDetail();
   closeOptions();
   closeFilters();
   elements.services.hidden = false;
@@ -562,6 +610,7 @@ async function start() {
 }
 
 document.querySelector("#close-detail").addEventListener("click", clearSelection);
+document.querySelector("#close-airport-detail").addEventListener("click", closeAirportDetail);
 document.querySelector("#home-control").addEventListener("click", centerHome);
 elements.optionsControl.addEventListener("click", () => elements.options.hidden ? openOptions() : closeOptions());
 document.querySelector("#close-options").addEventListener("click", closeOptions);

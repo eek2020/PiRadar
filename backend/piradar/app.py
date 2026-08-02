@@ -149,6 +149,8 @@ def build_handler(
             self.send_header("Content-Type", f"{content_type}; charset=utf-8" if content_type.startswith("text/") else content_type)
             self.send_header("Content-Length", str(len(body)))
             self.send_header("X-Content-Type-Options", "nosniff")
+            if candidate.suffix in {".html", ".js", ".css"}:
+                self.send_header("Cache-Control", "no-cache")
             self.end_headers()
             self.wfile.write(body)
 

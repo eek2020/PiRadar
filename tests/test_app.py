@@ -76,6 +76,7 @@ class AppTests(unittest.TestCase):
         self.assertIn('id="filter-control"', body)
         self.assertIn('id="detail-type"', body)
         self.assertIn('id="open-services"', body)
+        self.assertIn('id="airport-detail"', body)
 
     def test_serves_local_airport_layer(self) -> None:
         with urlopen(self.base_url + "/data/airports-gb.json", timeout=2) as response:
@@ -92,6 +93,12 @@ class AppTests(unittest.TestCase):
             body = response.read().decode("utf-8")
         self.assertIn("populateDetail(selected, true)", body)
         self.assertIn("function populateDetail(track, resetEnrichment = false)", body)
+
+    def test_airports_are_selectable(self) -> None:
+        with urlopen(self.base_url + "/app.js", timeout=2) as response:
+            body = response.read().decode("utf-8")
+        self.assertIn('function selectAirport(airport)', body)
+        self.assertIn('.on("click", () => selectAirport(airport))', body)
 
     def test_unknown_api_is_json_404(self) -> None:
         with self.assertRaises(HTTPError) as error:

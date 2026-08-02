@@ -21,6 +21,7 @@ Design and acceptance testing target 800×480 landscape first. Interactive contr
 - Airliners, light aircraft, rotorcraft, gliders and other traffic use distinct silhouettes
 - A selected aircraft develops a green local trail from positions observed during the current kiosk session
 - Toggleable airport markers show nearby IATA or ICAO codes without obscuring the base map
+- Selecting an airport marker opens its name, identifiers, classification and distance from home
 - Bottom rail: visible aircraft count, configured range and data caveat
 
 The default zoom deliberately shows a useful local subset rather than forcing the entire configured query radius onto one screen. Users can pan, zoom and return home. All loaded aircraft remain available but filters can temporarily hide classes or altitude bands. Aircraft identity and route enrichment is loaded only after selection and explicitly identifies unavailable or uncertain data. Display preferences and filters persist locally in the kiosk browser. Live views show aircraft, map and airport-data attribution. The kiosk hides the pointer across the map and controls; touch feedback and focus styling provide interaction cues instead.
