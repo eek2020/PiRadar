@@ -12,3 +12,4 @@ All notable changes will be documented here. The project follows [Semantic Versi
 - Touch-oriented radar UI scaffold
 - Tests, CI, systemd and installation scaffolding
 - Live adsb.lol provider with caching and stale/offline recovery
+- Full-screen geographic aircraft map with touch-sized controls and selectable telemetry

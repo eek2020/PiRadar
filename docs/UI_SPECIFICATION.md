@@ -11,12 +11,13 @@ Design and acceptance testing target 800×480 landscape first. Interactive contr
 ## Main view
 
 - Top status rail: product identity, provider state and local UTC time
-- Left radar field: range rings, cardinal labels, home marker and oriented aircraft symbols
-- Right traffic rail: eight nearest aircraft with altitude and distance as large touch targets
-- Selected aircraft replaces the traffic rail with a focused telemetry panel and is labelled on the radar
+- Full-screen geographic map centred on the configured home location
+- Oriented aircraft symbols placed over towns, roads and other geographic context
+- Home control and large zoom controls suitable for touch
+- Selected aircraft opens a compact telemetry card over the map
 - Bottom rail: visible aircraft count, configured range and data caveat
 
-All in-range aircraft remain represented. When traffic is dense, compact directional symbols preserve the overall airspace picture without turning callsigns into an unreadable cloud. Identities live in the nearest-traffic rail; selecting any symbol or row opens its detail and labels it on the radar. Live data views include the provider's required attribution in the bottom rail.
+The default zoom deliberately shows a useful local subset rather than forcing the entire configured query radius onto one screen. Users can pan, zoom and return home. All loaded aircraft remain on the map and can be selected directly. Live views show both aircraft-data and map-data attribution.
 
 ## States
 
@@ -25,6 +26,7 @@ All in-range aircraft remain represented. When traffic is dense, compact directi
 - **Stale:** last snapshot may remain visible but is clearly marked
 - **Offline/error:** explanation and automatic retry status
 - **No traffic:** valid connected state with a deliberate empty-radar message
+- **Map unavailable:** aircraft status remains explicit even if geographic tiles cannot load
 
 ## Design tokens
 

@@ -16,6 +16,7 @@ class Config:
     range_nm: int = 60
     provider: str = "mock"
     refresh_seconds: int = 8
+    map_tile_url: str = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
 
     @classmethod
     def load(cls, path: str | Path | None = None) -> "Config":
@@ -33,6 +34,7 @@ class Config:
             "range_nm": os.getenv("PIRADAR_RANGE_NM"),
             "provider": os.getenv("PIRADAR_PROVIDER"),
             "refresh_seconds": os.getenv("PIRADAR_REFRESH_SECONDS"),
+            "map_tile_url": os.getenv("PIRADAR_MAP_TILE_URL"),
         }
         values.update({key: value for key, value in environment.items() if value is not None})
 
@@ -60,6 +62,10 @@ class Config:
             raise ValueError(f"unsupported provider: {self.provider}")
         if not 2 <= self.refresh_seconds <= 60:
             raise ValueError("refresh_seconds must be between 2 and 60")
+        if not self.map_tile_url.startswith("https://") or not all(
+            token in self.map_tile_url for token in ("{z}", "{x}", "{y}")
+        ):
+            raise ValueError("map_tile_url must be an HTTPS slippy-map URL template")
 
     def public_dict(self) -> dict[str, Any]:
         return {

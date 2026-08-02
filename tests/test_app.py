@@ -48,8 +48,13 @@ class AppTests(unittest.TestCase):
         with urlopen(self.base_url + "/", timeout=2) as response:
             body = response.read().decode("utf-8")
         self.assertIn("<title>PiRadar</title>", body)
-        self.assertIn('id="traffic-list"', body)
+        self.assertIn('id="map"', body)
         self.assertIn('id="detail-distance"', body)
+
+    def test_serves_vendored_map_runtime(self) -> None:
+        with urlopen(self.base_url + "/vendor/leaflet/leaflet.js", timeout=2) as response:
+            body = response.read().decode("utf-8")
+        self.assertIn("1.9.4", body)
 
     def test_unknown_api_is_json_404(self) -> None:
         with self.assertRaises(HTTPError) as error:

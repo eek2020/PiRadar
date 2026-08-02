@@ -1,13 +1,14 @@
 const state = {
   config: null,
+  map: null,
+  tileLayer: null,
+  homeMarker: null,
+  markers: new Map(),
   selectedHex: null,
   latest: [],
 };
 
-const RADAR = { x: 210, y: 200, radius: 184 };
-
 const elements = {
-  tracks: document.querySelector("#tracks"),
   connection: document.querySelector("#connection"),
   clock: document.querySelector("#clock"),
   message: document.querySelector("#message"),
@@ -15,8 +16,6 @@ const elements = {
   range: document.querySelector("#range"),
   detail: document.querySelector("#detail"),
   attribution: document.querySelector("#attribution"),
-  trafficList: document.querySelector("#traffic-list"),
-  trafficSummary: document.querySelector("#traffic-summary"),
 };
 
 function setConnection(label, kind) {
@@ -24,143 +23,129 @@ function setConnection(label, kind) {
   elements.connection.lastElementChild.textContent = label;
 }
 
-function positionFor(track) {
+function initializeMap() {
+  state.map = L.map("map", {
+    attributionControl: true,
+    doubleClickZoom: true,
+    scrollWheelZoom: false,
+    zoomControl: false,
+    zoomSnap: 0.5,
+  });
+  L.control.zoom({ position: "bottomleft" }).addTo(state.map);
+  state.tileLayer = L.tileLayer(state.config.map_tile_url, {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>',
+    maxZoom: 18,
+  }).addTo(state.map);
+
+  state.homeMarker = L.marker(
+    [state.config.home_latitude, state.config.home_longitude],
+    {
+      icon: L.divIcon({ className: "home-marker", html: "", iconSize: [18, 18] }),
+      interactive: false,
+      keyboard: false,
+      zIndexOffset: 1000,
+    },
+  ).addTo(state.map);
+  state.map.on("click", clearSelection);
+  centerHome();
+}
+
+function centerHome() {
+  const latDelta = state.config.range_nm / 60;
+  const lonDelta = latDelta / Math.max(Math.cos(state.config.home_latitude * Math.PI / 180), 0.2);
+  state.map.fitBounds(
+    [
+      [state.config.home_latitude - latDelta, state.config.home_longitude - lonDelta],
+      [state.config.home_latitude + latDelta, state.config.home_longitude + lonDelta],
+    ],
+    { animate: false, padding: [18, 18] },
+  );
+  state.map.setZoom(Math.min(state.map.getZoom() + 1, 13), { animate: false });
+}
+
+function distanceFromHome(track) {
   const latNm = (track.latitude - state.config.home_latitude) * 60;
   const lonNm = (track.longitude - state.config.home_longitude) * 60 * Math.cos(state.config.home_latitude * Math.PI / 180);
-  const scale = RADAR.radius / state.config.range_nm;
-  return {
-    x: RADAR.x + lonNm * scale,
-    y: RADAR.y - latNm * scale,
-    distanceNm: Math.hypot(latNm, lonNm),
-  };
+  return Math.hypot(latNm, lonNm);
+}
+
+function aircraftIcon(track, selected) {
+  const rotation = Number.isFinite(track.track_deg) ? track.track_deg : 0;
+  return L.divIcon({
+    className: `aircraft-marker${selected ? " selected" : ""}`,
+    iconSize: [30, 30],
+    iconAnchor: [15, 15],
+    html: `<svg viewBox="0 0 30 30" aria-hidden="true" style="transform:rotate(${rotation}deg)"><path d="M15 1 L18 11 L28 16 L28 19 L18 17 L18 24 L22 27 L22 29 L15 26 L8 29 L8 27 L12 24 L12 17 L2 19 L2 16 L12 11 Z"/></svg>`,
+  });
 }
 
 function renderAircraft(aircraft) {
   state.latest = aircraft;
-  elements.tracks.replaceChildren();
-  const plotted = aircraft
-    .map((track) => {
-      const position = positionFor(track);
-      return { track, position, distanceNm: position.distanceNm };
-    })
-    .filter(({ distanceNm }) => distanceNm <= state.config.range_nm)
-    .sort((left, right) => left.distanceNm - right.distanceNm);
-  const dense = plotted.length > 60;
+  const incoming = new Set();
 
-  plotted.forEach(({ track, position }) => {
-
-    const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
-    group.classList.add("track");
-    if (dense) group.classList.add("dense");
-    if (track.hex === state.selectedHex) group.classList.add("selected");
-    group.setAttribute("transform", `translate(${position.x.toFixed(1)} ${position.y.toFixed(1)})`);
-    group.setAttribute("tabindex", "0");
-    group.setAttribute("role", "button");
-    group.setAttribute("aria-label", `${track.callsign || track.hex}, ${track.altitude_ft} feet`);
-
-    const hitTarget = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-    hitTarget.classList.add("hit-target");
-    hitTarget.setAttribute("r", "14");
-
-    const plane = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    plane.classList.add("plane");
-    plane.setAttribute("d", dense
-      ? "M0 -5 L4 4 L0 2 L-4 4 Z"
-      : "M0 -8 L3 -2 L8 2 L8 4 L2 2 L2 6 L4 8 L0 7 L-4 8 L-2 6 L-2 2 L-8 4 L-8 2 L-3 -2 Z");
-    plane.setAttribute("transform", `rotate(${track.track_deg})`);
-
-    group.append(hitTarget, plane);
-    if (track.hex === state.selectedHex) {
-      group.classList.add("labelled");
-      const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
-      label.classList.add("label");
-      label.setAttribute("x", "12");
-      label.setAttribute("y", "-2");
-      label.textContent = track.callsign || track.hex;
-      const altitude = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
-      altitude.classList.add("altitude");
-      altitude.setAttribute("x", "12");
-      altitude.setAttribute("dy", "11");
-      altitude.textContent = `${Math.round(track.altitude_ft / 100)} · ${track.ground_speed_kt}kt`;
-      label.append(altitude);
-      group.append(label);
+  aircraft.forEach((track) => {
+    incoming.add(track.hex);
+    const selected = track.hex === state.selectedHex;
+    let marker = state.markers.get(track.hex);
+    if (!marker) {
+      marker = L.marker([track.latitude, track.longitude], {
+        icon: aircraftIcon(track, selected),
+        keyboard: true,
+        riseOnHover: true,
+        title: track.callsign || track.hex,
+      });
+      marker.on("click", () => selectAircraft(track.hex));
+      marker.addTo(state.map);
+      state.markers.set(track.hex, marker);
+    } else {
+      marker.setLatLng([track.latitude, track.longitude]);
+      marker.setIcon(aircraftIcon(track, selected));
     }
-
-    const select = () => {
-      showDetail(track);
-      renderAircraft(state.latest);
-    };
-    group.addEventListener("click", select);
-    group.addEventListener("keydown", (event) => {
-      if (event.key === "Enter" || event.key === " ") select();
-    });
-    elements.tracks.append(group);
+    marker.setZIndexOffset(selected ? 2000 : Math.max(0, 50000 - track.altitude_ft));
   });
 
-  renderTrafficList(plotted);
-  elements.count.textContent = String(plotted.length);
-  elements.message.hidden = plotted.length > 0;
-  if (!plotted.length) elements.message.textContent = "No aircraft in range";
+  state.markers.forEach((marker, hex) => {
+    if (!incoming.has(hex)) {
+      marker.remove();
+      state.markers.delete(hex);
+    }
+  });
+
+  elements.count.textContent = String(aircraft.length);
+  elements.message.hidden = aircraft.length > 0;
+  if (!aircraft.length) elements.message.textContent = "No aircraft in range";
+
   if (state.selectedHex) {
     const selected = aircraft.find((track) => track.hex === state.selectedHex);
-    if (selected) {
-      populateDetail(selected);
-    } else {
-      state.selectedHex = null;
-      elements.detail.hidden = true;
-    }
+    if (selected) populateDetail(selected);
+    else clearSelection();
   }
 }
 
-function renderTrafficList(plotted) {
-  const nearest = plotted.slice(0, 8);
-  elements.trafficList.replaceChildren();
-  elements.trafficSummary.textContent = plotted.length
-    ? `${nearest.length} of ${plotted.length} in range`
-    : "No traffic in range";
+function selectAircraft(hex) {
+  state.selectedHex = hex;
+  const selected = state.latest.find((track) => track.hex === hex);
+  if (!selected) return;
+  populateDetail(selected);
+  elements.detail.hidden = false;
+  renderAircraft(state.latest);
+}
 
-  nearest.forEach(({ track, distanceNm }) => {
-    const item = document.createElement("li");
-    const button = document.createElement("button");
-    button.classList.add("traffic-row");
-    button.type = "button";
-    button.setAttribute("aria-pressed", String(track.hex === state.selectedHex));
-    button.setAttribute("aria-label", `${track.callsign || track.hex}, ${distanceNm.toFixed(1)} nautical miles`);
-
-    const callsign = document.createElement("span");
-    callsign.classList.add("traffic-callsign");
-    callsign.textContent = track.callsign || track.hex;
-    const altitude = document.createElement("span");
-    altitude.classList.add("traffic-altitude");
-    altitude.textContent = track.altitude_ft <= 0 ? "GND" : `${Math.round(track.altitude_ft / 100)}00ft`;
-    const distance = document.createElement("span");
-    distance.classList.add("traffic-distance");
-    distance.textContent = `${distanceNm.toFixed(1)}nm`;
-
-    button.addEventListener("click", () => {
-      showDetail(track);
-      renderAircraft(state.latest);
-    });
-    button.append(callsign, altitude, distance);
-    item.append(button);
-    elements.trafficList.append(item);
-  });
+function clearSelection() {
+  if (!state.selectedHex && elements.detail.hidden) return;
+  state.selectedHex = null;
+  elements.detail.hidden = true;
+  renderAircraft(state.latest);
 }
 
 function populateDetail(track) {
   document.querySelector("#detail-callsign").textContent = track.callsign || "Unknown";
-  document.querySelector("#detail-altitude").textContent = `${track.altitude_ft.toLocaleString()} ft`;
+  document.querySelector("#detail-altitude").textContent = track.altitude_ft <= 0 ? "Ground" : `${track.altitude_ft.toLocaleString()} ft`;
   document.querySelector("#detail-speed").textContent = `${track.ground_speed_kt} kt`;
-  document.querySelector("#detail-distance").textContent = `${positionFor(track).distanceNm.toFixed(1)} NM`;
+  document.querySelector("#detail-distance").textContent = `${distanceFromHome(track).toFixed(1)} NM`;
   document.querySelector("#detail-track").textContent = `${String(track.track_deg).padStart(3, "0")}°`;
   document.querySelector("#detail-vertical").textContent = `${track.vertical_rate_fpm > 0 ? "+" : ""}${track.vertical_rate_fpm.toLocaleString()} fpm`;
   document.querySelector("#detail-hex").textContent = track.hex;
-}
-
-function showDetail(track) {
-  state.selectedHex = track.hex;
-  populateDetail(track);
-  elements.detail.hidden = false;
 }
 
 async function updateAircraft() {
@@ -197,6 +182,7 @@ async function start() {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     state.config = await response.json();
     elements.range.textContent = String(state.config.range_nm);
+    initializeMap();
     await updateAircraft();
     window.setInterval(updateAircraft, 3000);
   } catch (error) {
@@ -207,11 +193,8 @@ async function start() {
   }
 }
 
-document.querySelector("#close-detail").addEventListener("click", () => {
-  state.selectedHex = null;
-  elements.detail.hidden = true;
-  renderAircraft(state.latest);
-});
+document.querySelector("#close-detail").addEventListener("click", clearSelection);
+document.querySelector("#home-control").addEventListener("click", centerHome);
 
 window.setInterval(() => {
   elements.clock.textContent = new Date().toISOString().slice(11, 19) + "Z";

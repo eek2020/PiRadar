@@ -13,6 +13,8 @@ The initial runtime has no third-party Python dependencies, so the appliance ser
 
 The backend owns configuration, provider access, normalization and static delivery. Providers return `Aircraft` domain objects. The browser owns visualization and transient selection state, and polls the normalized endpoint. No provider response shape may leak into frontend code.
 
+The frontend vendors Leaflet 1.9.4 locally and reads its raster tile URL template from public configuration. The initial default is the standard OpenStreetMap HTTPS tile service. Browser caching and referer behaviour are left intact, attribution remains visible, and PiRadar never prefetches or bulk-downloads tiles. A production release must review tile capacity and may select another OSM-derived provider without changing the application code.
+
 The `adsb_lol` adapter requests the documented nearby-aircraft endpoint at no more than the configured refresh interval. Successful results are cached; a later upstream failure returns the last snapshot as stale rather than clearing the display. The mock adapter remains the deterministic offline development source.
 
 ## Aircraft contract

@@ -16,6 +16,7 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(config.provider, "mock")
         self.assertEqual(config.range_nm, 60)
         self.assertEqual(config.refresh_seconds, 8)
+        self.assertIn("{z}", config.map_tile_url)
 
     def test_file_and_environment_precedence(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -32,6 +33,10 @@ class ConfigTests(unittest.TestCase):
 
     def test_accepts_live_provider(self) -> None:
         Config(provider="adsb_lol").validate()
+
+    def test_rejects_unsafe_tile_url(self) -> None:
+        with self.assertRaisesRegex(ValueError, "map_tile_url"):
+            Config(map_tile_url="http://tiles.example/{z}/{x}/{y}.png").validate()
 
     def test_public_config_does_not_expose_listener(self) -> None:
         public = Config(host="0.0.0.0", port=9999).public_dict()

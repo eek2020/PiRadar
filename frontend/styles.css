@@ -37,51 +37,37 @@ button { font: inherit; }
 .connection[data-state="error"] .status-dot { background: var(--fault); }
 #clock { color: var(--muted); font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums; }
 
-.radar-panel { position: relative; min-height: 0; display: grid; grid-template-columns: minmax(0, 58%) minmax(280px, 42%); }
-.radar-stage { position: relative; min-width: 0; min-height: 0; overflow: hidden; }
-#radar { width: 100%; height: 100%; display: block; }
-.radar-field { fill: url(#radar-glow); stroke: var(--line); }
-.grid { fill: none; stroke: var(--line); stroke-width: .8; }
-.grid-minor { stroke-dasharray: 2 5; opacity: .55; }
-.grid text { fill: var(--muted); stroke: none; font: 9px ui-monospace, monospace; text-anchor: middle; }
-.home { fill: var(--bg); stroke: var(--mint); stroke-width: 1; filter: url(#soft-glow); }
-.track { cursor: pointer; outline: none; }
-.track .hit-target { fill: transparent; pointer-events: all; }
-.track .plane { fill: var(--mint); filter: url(#soft-glow); opacity: .72; }
-.track.dense .plane { opacity: .56; }
-.track.labelled .plane, .track.selected .plane { fill: white; opacity: 1; }
-.track .label { fill: var(--text); font: 10px ui-monospace, monospace; paint-order: stroke; stroke: var(--bg); stroke-width: 3px; }
-.track .altitude { fill: var(--muted); font-size: 8px; }
-.track:focus .plane, .track:hover .plane { fill: white; }
+.map-panel { position: relative; min-height: 0; overflow: hidden; background: #13201f; }
+#map { width: 100%; height: 100%; background: #13201f; }
+.leaflet-tile-pane { filter: grayscale(.7) sepia(.25) hue-rotate(95deg) saturate(.7) brightness(.58) contrast(1.18); }
+.leaflet-control-zoom { margin: 0 0 12px 12px !important; border: 1px solid rgba(255,255,255,.28) !important; box-shadow: 0 4px 18px rgba(0,0,0,.35) !important; }
+.leaflet-control-zoom a { width: 44px !important; height: 44px !important; border-bottom-color: rgba(255,255,255,.16) !important; background: rgba(8,16,18,.88) !important; color: white !important; font-size: 24px !important; line-height: 42px !important; }
+.leaflet-control-attribution { padding: 2px 5px !important; background: rgba(7,16,20,.76) !important; color: #b8c7c4 !important; font-size: 8px !important; }
+.leaflet-control-attribution a { color: var(--mint) !important; }
+.leaflet-container { font-family: inherit; }
+.aircraft-marker { width: 30px !important; height: 30px !important; margin: -15px 0 0 -15px !important; background: transparent; border: 0; }
+.aircraft-marker svg { width: 30px; height: 30px; overflow: visible; filter: drop-shadow(0 1px 1px rgba(0,0,0,.9)); }
+.aircraft-marker path { fill: var(--amber); stroke: #3f2c00; stroke-width: .8; vector-effect: non-scaling-stroke; }
+.aircraft-marker.selected svg { width: 38px; height: 38px; margin: -4px; filter: drop-shadow(0 0 5px rgba(255,197,110,.9)); }
+.home-marker { width: 18px !important; height: 18px !important; margin: -9px 0 0 -9px !important; border: 2px solid white; border-radius: 50%; background: #3387c9; box-shadow: 0 0 0 2px rgba(0,0,0,.45); }
+.home-marker::after { content: ""; position: absolute; inset: 4px; border-radius: 50%; background: white; }
+.home-control { position: absolute; z-index: 500; top: 12px; left: 12px; width: 46px; height: 46px; padding: 0; border: 1px solid rgba(255,255,255,.35); border-radius: 50%; background: rgba(8,16,18,.88); box-shadow: 0 4px 18px rgba(0,0,0,.35); color: white; font-size: 27px; line-height: 44px; cursor: pointer; }
+.home-control:focus, .home-control:hover { outline: 2px solid var(--mint); outline-offset: 2px; }
 .message { position: absolute; inset: 50% auto auto 50%; transform: translate(-50%, -50%); padding: 10px 14px; border: 1px solid var(--line); background: rgba(5,14,17,.9); color: var(--muted); font-size: 12px; letter-spacing: .05em; text-transform: uppercase; }
 .message[hidden] { display: none; }
-.traffic-panel { position: relative; min-width: 0; overflow: hidden; border-left: 1px solid rgba(125,255,213,.16); background: rgba(5,14,17,.72); }
-.traffic-header { height: 53px; display: flex; align-items: center; justify-content: space-between; padding: 0 14px; border-bottom: 1px solid rgba(125,255,213,.14); }
-.traffic-header .eyebrow { margin: 0 0 3px; }
-.traffic-header strong { color: var(--text); font-size: 12px; font-weight: 550; }
-.traffic-header > span { color: var(--muted); font: 9px ui-monospace, monospace; letter-spacing: .1em; }
-.traffic-list { height: calc(100% - 53px); margin: 0; padding: 0; list-style: none; overflow: hidden; }
-.traffic-list li { height: calc(100% / 8); min-height: 42px; border-bottom: 1px solid rgba(125,255,213,.09); }
-.traffic-row { width: 100%; height: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 10px; padding: 0 14px; border: 0; border-left: 2px solid transparent; background: transparent; color: var(--text); text-align: left; cursor: pointer; }
-.traffic-row:focus, .traffic-row:hover, .traffic-row[aria-pressed="true"] { outline: none; border-left-color: var(--mint); background: rgba(125,255,213,.08); }
-.traffic-callsign { overflow: hidden; color: var(--mint); font: 12px ui-monospace, monospace; text-overflow: ellipsis; white-space: nowrap; }
-.traffic-altitude, .traffic-distance { color: var(--muted); font: 10px ui-monospace, monospace; font-variant-numeric: tabular-nums; }
-.traffic-distance { min-width: 38px; color: var(--text); text-align: right; }
-.detail { position: absolute; inset: 0; z-index: 2; padding: 60px 18px 18px; background: rgba(7,16,20,.985); }
-.detail button { position: absolute; top: 7px; left: 8px; width: 44px; height: 44px; border: 1px solid rgba(125,255,213,.18); border-radius: 50%; background: rgba(125,255,213,.06); color: var(--mint); font-size: 28px; line-height: 1; cursor: pointer; }
+.detail { position: absolute; z-index: 600; top: 12px; right: 12px; width: 272px; min-height: 280px; padding: 54px 18px 18px; border: 1px solid rgba(125,255,213,.35); border-radius: 10px; background: rgba(7,16,20,.96); box-shadow: 0 12px 36px rgba(0,0,0,.5); }
+.detail button { position: absolute; top: 7px; right: 7px; width: 44px; height: 44px; border: 1px solid rgba(125,255,213,.18); border-radius: 50%; background: rgba(125,255,213,.06); color: var(--mint); font-size: 25px; line-height: 1; cursor: pointer; }
 .detail .eyebrow { margin: 0; color: var(--muted); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; }
 .detail h2 { margin: 5px 0 20px; color: var(--mint); font: 25px ui-monospace, monospace; }
 .detail dl { display: grid; grid-template-columns: 1fr 1fr; gap: 17px 12px; margin: 0; }
 .detail dl div { min-width: 0; }
 .detail dt { color: var(--muted); font-size: 9px; text-transform: uppercase; }
 .detail dd { margin: 4px 0 0; font: 13px ui-monospace, monospace; white-space: nowrap; }
-.detail-hint { position: absolute; right: 18px; bottom: 15px; left: 18px; margin: 0; color: var(--muted); font-size: 9px; line-height: 1.4; text-transform: uppercase; }
 .eyebrow { color: var(--muted); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; }
 
 @media (max-width: 600px) {
   .status-rail, .info-rail { padding-inline: 10px; }
   .info-rail { gap: 12px; }
   .caveat { display: none; }
-  .radar-panel { grid-template-columns: 1fr; }
-  .traffic-panel { display: none; }
+  .detail { right: 8px; left: 8px; width: auto; }
 }
