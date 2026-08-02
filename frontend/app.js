@@ -238,7 +238,7 @@ function selectAircraft(hex) {
   if (!selected) return;
   closeOptions();
   closeFilters();
-  populateDetail(selected);
+  populateDetail(selected, true);
   elements.detail.hidden = false;
   renderAircraft(state.latest);
   loadAircraftDetails(hex);
@@ -252,7 +252,7 @@ function clearSelection() {
   renderAircraft(state.latest);
 }
 
-function populateDetail(track) {
+function populateDetail(track, resetEnrichment = false) {
   document.querySelector("#detail-callsign").textContent = track.callsign || "Unknown";
   document.querySelector("#detail-altitude").textContent = track.altitude_ft <= 0 ? "Ground" : `${track.altitude_ft.toLocaleString()} ft`;
   document.querySelector("#detail-speed").textContent = `${track.ground_speed_kt} kt`;
@@ -261,14 +261,16 @@ function populateDetail(track) {
   document.querySelector("#detail-vertical").textContent = `${track.vertical_rate_fpm > 0 ? "+" : ""}${track.vertical_rate_fpm.toLocaleString()} fpm`;
   document.querySelector("#detail-hex").textContent = track.hex;
   document.querySelector("#detail-squawk").textContent = track.squawk || "—";
-  document.querySelector("#detail-registration").textContent = track.registration || "Registration unavailable";
-  document.querySelector("#detail-type").textContent = track.aircraft_type || "Aircraft type unavailable";
-  document.querySelector("#detail-operator").textContent = "Operator unavailable";
-  document.querySelector("#detail-origin").textContent = "—";
-  document.querySelector("#detail-origin-name").textContent = "Origin unavailable";
-  document.querySelector("#detail-destination").textContent = "—";
-  document.querySelector("#detail-destination-name").textContent = "Destination unavailable";
-  document.querySelector("#detail-lookup").textContent = "Looking up aircraft and route…";
+  if (resetEnrichment) {
+    document.querySelector("#detail-registration").textContent = track.registration || "Registration unavailable";
+    document.querySelector("#detail-type").textContent = track.aircraft_type || "Aircraft type unavailable";
+    document.querySelector("#detail-operator").textContent = "Operator unavailable";
+    document.querySelector("#detail-origin").textContent = "—";
+    document.querySelector("#detail-origin-name").textContent = "Origin unavailable";
+    document.querySelector("#detail-destination").textContent = "—";
+    document.querySelector("#detail-destination-name").textContent = "Destination unavailable";
+    document.querySelector("#detail-lookup").textContent = "Looking up aircraft and route…";
+  }
 }
 
 async function loadAircraftDetails(hex) {

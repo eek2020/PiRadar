@@ -70,6 +70,12 @@ class AppTests(unittest.TestCase):
             body = response.read().decode("utf-8")
         self.assertIn("1.9.4", body)
 
+    def test_position_refresh_preserves_enriched_details(self) -> None:
+        with urlopen(self.base_url + "/app.js", timeout=2) as response:
+            body = response.read().decode("utf-8")
+        self.assertIn("populateDetail(selected, true)", body)
+        self.assertIn("function populateDetail(track, resetEnrichment = false)", body)
+
     def test_unknown_api_is_json_404(self) -> None:
         with self.assertRaises(HTTPError) as error:
             urlopen(self.base_url + "/api/nope", timeout=2)

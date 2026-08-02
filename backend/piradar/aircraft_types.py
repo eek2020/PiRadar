@@ -73,6 +73,7 @@ AIRLINE_NAMES: dict[str, str] = {
     "EZY": "easyJet",
     "KLM": "KLM",
     "LOG": "Loganair",
+    "MSR": "EgyptAir",
     "RYR": "Ryanair",
     "SAS": "SAS",
     "TOM": "TUI Airways",
