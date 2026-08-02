@@ -37,7 +37,8 @@ button { font: inherit; }
 .connection[data-state="error"] .status-dot { background: var(--fault); }
 #clock { color: var(--muted); font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums; }
 
-.radar-panel { position: relative; min-height: 0; }
+.radar-panel { position: relative; min-height: 0; display: grid; grid-template-columns: minmax(0, 58%) minmax(280px, 42%); }
+.radar-stage { position: relative; min-width: 0; min-height: 0; overflow: hidden; }
 #radar { width: 100%; height: 100%; display: block; }
 .radar-field { fill: url(#radar-glow); stroke: var(--line); }
 .grid { fill: none; stroke: var(--line); stroke-width: .8; }
@@ -45,24 +46,42 @@ button { font: inherit; }
 .grid text { fill: var(--muted); stroke: none; font: 9px ui-monospace, monospace; text-anchor: middle; }
 .home { fill: var(--bg); stroke: var(--mint); stroke-width: 1; filter: url(#soft-glow); }
 .track { cursor: pointer; outline: none; }
-.track .plane { fill: var(--mint); filter: url(#soft-glow); }
-.track:not(.labelled) .plane { opacity: .62; }
+.track .hit-target { fill: transparent; pointer-events: all; }
+.track .plane { fill: var(--mint); filter: url(#soft-glow); opacity: .72; }
+.track.dense .plane { opacity: .56; }
+.track.labelled .plane, .track.selected .plane { fill: white; opacity: 1; }
 .track .label { fill: var(--text); font: 10px ui-monospace, monospace; paint-order: stroke; stroke: var(--bg); stroke-width: 3px; }
 .track .altitude { fill: var(--muted); font-size: 8px; }
 .track:focus .plane, .track:hover .plane { fill: white; }
 .message { position: absolute; inset: 50% auto auto 50%; transform: translate(-50%, -50%); padding: 10px 14px; border: 1px solid var(--line); background: rgba(5,14,17,.9); color: var(--muted); font-size: 12px; letter-spacing: .05em; text-transform: uppercase; }
 .message[hidden] { display: none; }
-.detail { position: absolute; top: 16px; right: 16px; width: 210px; padding: 16px; border: 1px solid rgba(125,255,213,.35); background: rgba(7,16,20,.96); box-shadow: 0 12px 36px rgba(0,0,0,.4); }
-.detail button { position: absolute; top: 6px; right: 8px; width: 44px; height: 44px; border: 0; background: transparent; color: var(--muted); font-size: 24px; cursor: pointer; }
+.traffic-panel { position: relative; min-width: 0; overflow: hidden; border-left: 1px solid rgba(125,255,213,.16); background: rgba(5,14,17,.72); }
+.traffic-header { height: 53px; display: flex; align-items: center; justify-content: space-between; padding: 0 14px; border-bottom: 1px solid rgba(125,255,213,.14); }
+.traffic-header .eyebrow { margin: 0 0 3px; }
+.traffic-header strong { color: var(--text); font-size: 12px; font-weight: 550; }
+.traffic-header > span { color: var(--muted); font: 9px ui-monospace, monospace; letter-spacing: .1em; }
+.traffic-list { height: calc(100% - 53px); margin: 0; padding: 0; list-style: none; overflow: hidden; }
+.traffic-list li { height: calc(100% / 8); min-height: 42px; border-bottom: 1px solid rgba(125,255,213,.09); }
+.traffic-row { width: 100%; height: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 10px; padding: 0 14px; border: 0; border-left: 2px solid transparent; background: transparent; color: var(--text); text-align: left; cursor: pointer; }
+.traffic-row:focus, .traffic-row:hover, .traffic-row[aria-pressed="true"] { outline: none; border-left-color: var(--mint); background: rgba(125,255,213,.08); }
+.traffic-callsign { overflow: hidden; color: var(--mint); font: 12px ui-monospace, monospace; text-overflow: ellipsis; white-space: nowrap; }
+.traffic-altitude, .traffic-distance { color: var(--muted); font: 10px ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+.traffic-distance { min-width: 38px; color: var(--text); text-align: right; }
+.detail { position: absolute; inset: 0; z-index: 2; padding: 60px 18px 18px; background: rgba(7,16,20,.985); }
+.detail button { position: absolute; top: 7px; left: 8px; width: 44px; height: 44px; border: 1px solid rgba(125,255,213,.18); border-radius: 50%; background: rgba(125,255,213,.06); color: var(--mint); font-size: 28px; line-height: 1; cursor: pointer; }
 .detail .eyebrow { margin: 0; color: var(--muted); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; }
-.detail h2 { margin: 4px 0 13px; color: var(--mint); font: 22px ui-monospace, monospace; }
-.detail dl { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 0; }
+.detail h2 { margin: 5px 0 20px; color: var(--mint); font: 25px ui-monospace, monospace; }
+.detail dl { display: grid; grid-template-columns: 1fr 1fr; gap: 17px 12px; margin: 0; }
 .detail dl div { min-width: 0; }
 .detail dt { color: var(--muted); font-size: 9px; text-transform: uppercase; }
-.detail dd { margin: 3px 0 0; font: 12px ui-monospace, monospace; white-space: nowrap; }
+.detail dd { margin: 4px 0 0; font: 13px ui-monospace, monospace; white-space: nowrap; }
+.detail-hint { position: absolute; right: 18px; bottom: 15px; left: 18px; margin: 0; color: var(--muted); font-size: 9px; line-height: 1.4; text-transform: uppercase; }
+.eyebrow { color: var(--muted); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; }
 
 @media (max-width: 600px) {
   .status-rail, .info-rail { padding-inline: 10px; }
   .info-rail { gap: 12px; }
   .caveat { display: none; }
+  .radar-panel { grid-template-columns: 1fr; }
+  .traffic-panel { display: none; }
 }

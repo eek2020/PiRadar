@@ -11,12 +11,12 @@ Design and acceptance testing target 800×480 landscape first. Interactive contr
 ## Main view
 
 - Top status rail: product identity, provider state and local UTC time
-- Radar field: range rings, cardinal labels, home marker and oriented aircraft symbols
-- Aircraft label: callsign and altitude, kept concise to reduce overlap
+- Left radar field: range rings, cardinal labels, home marker and oriented aircraft symbols
+- Right traffic rail: eight nearest aircraft with altitude and distance as large touch targets
+- Selected aircraft replaces the traffic rail with a focused telemetry panel and is labelled on the radar
 - Bottom rail: visible aircraft count, configured range and data caveat
-- Detail card: appears after selecting an aircraft and can be dismissed by touch
 
-All in-range aircraft symbols remain visible. Labels are prioritized by proximity and collision-limited for legibility; selecting any symbol always reveals and labels that aircraft. Live data views include the provider's required attribution in the bottom rail.
+All in-range aircraft remain represented. When traffic is dense, compact directional symbols preserve the overall airspace picture without turning callsigns into an unreadable cloud. Identities live in the nearest-traffic rail; selecting any symbol or row opens its detail and labels it on the radar. Live data views include the provider's required attribution in the bottom rail.
 
 ## States
 

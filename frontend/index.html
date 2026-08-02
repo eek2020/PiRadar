@@ -16,37 +16,51 @@
       </header>
 
       <section class="radar-panel" aria-label="Nearby aircraft radar">
-        <svg id="radar" viewBox="0 0 800 400" role="img" aria-labelledby="radar-title radar-description">
-          <title id="radar-title">Nearby aircraft</title>
-          <desc id="radar-description">A radar-style plot centred on the configured home location.</desc>
-          <defs>
-            <radialGradient id="radar-glow">
-              <stop offset="0" stop-color="#16332f"></stop>
-              <stop offset="1" stop-color="#071014"></stop>
-            </radialGradient>
-            <filter id="soft-glow"><feGaussianBlur stdDeviation="2" result="blur"></feGaussianBlur><feMerge><feMergeNode in="blur"></feMergeNode><feMergeNode in="SourceGraphic"></feMergeNode></feMerge></filter>
-          </defs>
-          <circle class="radar-field" cx="400" cy="200" r="184"></circle>
-          <g class="grid" aria-hidden="true">
-            <circle cx="400" cy="200" r="46"></circle><circle cx="400" cy="200" r="92"></circle><circle cx="400" cy="200" r="138"></circle><circle cx="400" cy="200" r="184"></circle>
-            <path d="M216 200H584M400 16V384"></path>
-            <path d="M270 70L530 330M530 70L270 330" class="grid-minor"></path>
-            <text x="400" y="13">N</text><text x="592" y="204">E</text><text x="400" y="398">S</text><text x="204" y="204">W</text>
-          </g>
-          <g id="tracks"></g>
-          <g class="home" aria-label="Home position"><circle cx="400" cy="200" r="5"></circle><path d="M390 200H410M400 190V210"></path></g>
-        </svg>
-        <div id="message" class="message">Initialising radar…</div>
-        <aside id="detail" class="detail" hidden>
-          <button id="close-detail" aria-label="Close aircraft details">×</button>
-          <p class="eyebrow">Selected aircraft</p>
-          <h2 id="detail-callsign">—</h2>
-          <dl>
-            <div><dt>Altitude</dt><dd id="detail-altitude">—</dd></div>
-            <div><dt>Speed</dt><dd id="detail-speed">—</dd></div>
-            <div><dt>Track</dt><dd id="detail-track">—</dd></div>
-            <div><dt>ICAO</dt><dd id="detail-hex">—</dd></div>
-          </dl>
+        <div class="radar-stage">
+          <svg id="radar" viewBox="0 0 460 400" role="img" aria-labelledby="radar-title radar-description">
+            <title id="radar-title">Nearby aircraft</title>
+            <desc id="radar-description">A radar-style plot centred on the configured home location.</desc>
+            <defs>
+              <radialGradient id="radar-glow">
+                <stop offset="0" stop-color="#16332f"></stop>
+                <stop offset="1" stop-color="#071014"></stop>
+              </radialGradient>
+              <filter id="soft-glow"><feGaussianBlur stdDeviation="2" result="blur"></feGaussianBlur><feMerge><feMergeNode in="blur"></feMergeNode><feMergeNode in="SourceGraphic"></feMergeNode></feMerge></filter>
+            </defs>
+            <circle class="radar-field" cx="210" cy="200" r="184"></circle>
+            <g class="grid" aria-hidden="true">
+              <circle cx="210" cy="200" r="46"></circle><circle cx="210" cy="200" r="92"></circle><circle cx="210" cy="200" r="138"></circle><circle cx="210" cy="200" r="184"></circle>
+              <path d="M26 200H394M210 16V384"></path>
+              <path d="M80 70L340 330M340 70L80 330" class="grid-minor"></path>
+              <text x="210" y="13">N</text><text x="402" y="204">E</text><text x="210" y="398">S</text><text x="18" y="204">W</text>
+            </g>
+            <g id="tracks"></g>
+            <g class="home" aria-label="Home position"><circle cx="210" cy="200" r="5"></circle><path d="M200 200H220M210 190V210"></path></g>
+          </svg>
+          <div id="message" class="message">Initialising radar…</div>
+        </div>
+
+        <aside class="traffic-panel" aria-label="Nearby traffic list">
+          <header class="traffic-header">
+            <div><p class="eyebrow">Nearest traffic</p><strong id="traffic-summary">Waiting for data</strong></div>
+            <span aria-hidden="true">DIST</span>
+          </header>
+          <ol id="traffic-list" class="traffic-list"></ol>
+
+          <section id="detail" class="detail" hidden>
+            <button id="close-detail" aria-label="Back to nearby traffic">‹</button>
+            <p class="eyebrow">Selected aircraft</p>
+            <h2 id="detail-callsign">—</h2>
+            <dl>
+              <div><dt>Altitude</dt><dd id="detail-altitude">—</dd></div>
+              <div><dt>Speed</dt><dd id="detail-speed">—</dd></div>
+              <div><dt>Distance</dt><dd id="detail-distance">—</dd></div>
+              <div><dt>Track</dt><dd id="detail-track">—</dd></div>
+              <div><dt>Vertical</dt><dd id="detail-vertical">—</dd></div>
+              <div><dt>ICAO</dt><dd id="detail-hex">—</dd></div>
+            </dl>
+            <p class="detail-hint">Tap the arrow to return to nearest traffic.</p>
+          </section>
         </aside>
       </section>
 
