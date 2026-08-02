@@ -19,9 +19,12 @@ Do not continue hacking the prototype. Treat this repository as the source of tr
 
 Open `http://localhost:8080`. The default mock provider needs no account, token or internet connection.
 
+## Reference appliance installation
+
+Clone the repository to `/opt/piradar`, then run `sudo ./scripts/install.sh`. After reviewing `/etc/piradar/piradar.json`, enable the application and kiosk with `sudo systemctl enable --now piradar cage@tty1`.
+
 ## Tests
 
 ```bash
 PYTHONPATH=backend python3 -m unittest discover -s tests -v
 ```
-

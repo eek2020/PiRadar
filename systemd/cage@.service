@@ -1,0 +1,35 @@
+[Unit]
+Description=PiRadar kiosk on %I
+After=systemd-user-sessions.service dbus.socket systemd-logind.service piradar.service
+Wants=dbus.socket systemd-logind.service
+Requires=piradar.service
+Before=graphical.target
+ConditionPathExists=/dev/tty0
+Conflicts=getty@%i.service
+After=getty@%i.service
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi
+PAMName=cage
+
+UtmpIdentifier=%I
+UtmpMode=user
+
+TTYPath=/dev/%I
+TTYReset=yes
+TTYVHangup=yes
+TTYVTDisallocate=yes
+StandardInput=tty-fail
+
+ExecStartPre=/bin/sh -c 'for attempt in $(seq 1 40); do /usr/bin/python3 -c "import urllib.request; urllib.request.urlopen(\"http://127.0.0.1:8080/api/health\", timeout=0.5)" >/dev/null 2>&1 && exit 0; sleep 0.25; done; exit 1'
+ExecStart=/usr/bin/cage -s -- /opt/piradar/scripts/start-kiosk.sh
+ExecStartPost=+sh -c "tty_name='%i'; exec chvt $${tty_name#tty}"
+
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=graphical.target
+
