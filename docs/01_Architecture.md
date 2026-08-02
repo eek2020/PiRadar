@@ -24,7 +24,7 @@ Static radar UI             ├── online ADS-B (phase 3)
 
 The UI consumes only the internal `/api/aircraft` contract. Changing from online data to a local receiver therefore does not require replacing the frontend.
 
-On the reference appliance, `piradar.service` runs the local application and `cage@tty1.service` owns the display session. Cage launches Chromium through `scripts/start-kiosk.sh` only after the health endpoint responds.
+On the reference appliance, `piradar.service` runs the local application and `cage@tty1.service` owns the display session. The kiosk script waits for the health endpoint before replacing itself with Chromium.
 
 ## API surface
 
