@@ -8,6 +8,7 @@
 - Chromium kiosk launch proven
 - XPT2046 resistive touch enabled and detected through the kernel ADS7846 driver
 - Full-screen geographic map, live aircraft plotting, touch pan/zoom and marker selection proven
+- Display options, aircraft filters, type-specific silhouettes, local trails and a public-domain UK airport layer implemented
 - Initial branded loading screen created
 - Project workspace created under `/opt/piradar`
 

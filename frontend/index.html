@@ -19,6 +19,9 @@
       <section class="map-panel" aria-label="Nearby aircraft map">
         <div id="map"></div>
         <button id="home-control" class="home-control" type="button" aria-label="Centre map on home position">⌖</button>
+        <button id="filter-control" class="filter-control" type="button" aria-label="Aircraft filters" aria-expanded="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18l-7 8v5l-4 2v-7z"/></svg>
+        </button>
         <button id="options-control" class="options-control" type="button" aria-label="Map options" aria-expanded="false">⚙</button>
         <div id="message" class="message">Initialising map…</div>
 
@@ -43,6 +46,35 @@
             <div class="altitude-key"><span>Low</span><i></i><i></i><i></i><i></i><span>High</span></div>
           </fieldset>
           <label class="switch-row" for="show-labels"><span><strong>Callsign labels</strong><small>Show names beside aircraft</small></span><input id="show-labels" type="checkbox"><i></i></label>
+        </aside>
+
+        <aside id="filters" class="filters" hidden>
+          <div class="panel-heading">
+            <div><p class="eyebrow">Traffic</p><h2>Filters</h2></div>
+            <button id="close-filters" class="panel-close" type="button" aria-label="Close aircraft filters">×</button>
+          </div>
+          <fieldset>
+            <legend>Aircraft type</legend>
+            <div class="choice-grid" data-filter="aircraftType">
+              <button type="button" data-value="all">All</button>
+              <button type="button" data-value="airliner">Airliners</button>
+              <button type="button" data-value="light">Light / twin</button>
+              <button type="button" data-value="rotorcraft">Helicopters</button>
+              <button type="button" data-value="glider">Gliders</button>
+              <button type="button" data-value="other">Other</button>
+            </div>
+          </fieldset>
+          <fieldset>
+            <legend>Altitude</legend>
+            <div class="choice-grid altitude-choices" data-filter="altitudeBand">
+              <button type="button" data-value="all">All</button>
+              <button type="button" data-value="low">Below 10k</button>
+              <button type="button" data-value="mid">10–25k</button>
+              <button type="button" data-value="high">Above 25k</button>
+            </div>
+          </fieldset>
+          <label class="switch-row" for="show-airports"><span><strong>Airports</strong><small>Show tower markers and codes</small></span><input id="show-airports" type="checkbox" checked><i></i></label>
+          <button id="reset-filters" class="reset-filters" type="button">Reset filters</button>
         </aside>
 
         <aside id="detail" class="detail" hidden>
@@ -72,7 +104,7 @@
       </section>
 
       <footer class="info-rail">
-        <span><strong id="aircraft-count">0</strong> aircraft</span>
+        <span><strong id="aircraft-count">0</strong><span id="aircraft-count-label"> aircraft</span></span>
         <span>Range <strong id="range">--</strong> NM</span>
         <span id="attribution" class="caveat">Informational display · not for navigation</span>
       </footer>

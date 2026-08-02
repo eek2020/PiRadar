@@ -57,7 +57,13 @@ class AppTests(unittest.TestCase):
         self.assertIn('id="map"', body)
         self.assertIn('id="detail-distance"', body)
         self.assertIn('id="options-control"', body)
+        self.assertIn('id="filter-control"', body)
         self.assertIn('id="detail-type"', body)
+
+    def test_serves_local_airport_layer(self) -> None:
+        with urlopen(self.base_url + "/data/airports-gb.json", timeout=2) as response:
+            airports = json.load(response)
+        self.assertTrue(any(airport["iata"] == "OXF" for airport in airports))
 
     def test_serves_vendored_map_runtime(self) -> None:
         with urlopen(self.base_url + "/vendor/leaflet/leaflet.js", timeout=2) as response:

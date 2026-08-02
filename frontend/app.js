@@ -3,13 +3,22 @@ const state = {
   map: null,
   tileLayer: null,
   homeMarker: null,
+  airportLayer: null,
+  airports: [],
   markers: new Map(),
+  history: new Map(),
+  selectedTrail: null,
   selectedHex: null,
   latest: [],
   preferences: {
     mapStyle: "colour",
     aircraftColour: "altitude",
     showLabels: false,
+  },
+  filters: {
+    aircraftType: "all",
+    altitudeBand: "all",
+    showAirports: true,
   },
 };
 
@@ -18,11 +27,15 @@ const elements = {
   clock: document.querySelector("#clock"),
   message: document.querySelector("#message"),
   count: document.querySelector("#aircraft-count"),
+  countLabel: document.querySelector("#aircraft-count-label"),
   range: document.querySelector("#range"),
   detail: document.querySelector("#detail"),
   options: document.querySelector("#options"),
   optionsControl: document.querySelector("#options-control"),
+  filters: document.querySelector("#filters"),
+  filterControl: document.querySelector("#filter-control"),
   showLabels: document.querySelector("#show-labels"),
+  showAirports: document.querySelector("#show-airports"),
   attribution: document.querySelector("#attribution"),
 };
 
@@ -54,7 +67,9 @@ function initializeMap() {
       zIndexOffset: 1000,
     },
   ).addTo(state.map);
+  state.airportLayer = L.layerGroup().addTo(state.map);
   state.map.on("click", clearSelection);
+  state.map.on("zoomend", renderAirports);
   centerHome();
 }
 
@@ -77,6 +92,10 @@ function distanceFromHome(track) {
   return Math.hypot(latNm, lonNm);
 }
 
+function distanceFromHomeCoordinates(latitude, longitude) {
+  return distanceFromHome({ latitude, longitude });
+}
+
 function altitudeColour(track) {
   if (state.preferences.aircraftColour === "amber") return "#ffc56e";
   if (track.altitude_ft <= 0) return "#aeb8b6";
@@ -86,16 +105,35 @@ function altitudeColour(track) {
   return "#ff7f78";
 }
 
+function aircraftClass(track) {
+  const type = (track.aircraft_type || "").toUpperCase();
+  const category = (track.category || "").toUpperCase();
+  if (category === "A7" || /^(H|R22|R44|EC|AS|B06|S76|AW)/.test(type)) return "rotorcraft";
+  if (category === "B1" || /^(GLID|ASW|DG|LS|SZD|VENT|DUOD|JANU)/.test(type)) return "glider";
+  if (["A3", "A4", "A5"].includes(category) || /^(A3|A2[013]|B7|B8|B9|E1|E2|CRJ|DH8|AT7)/.test(type)) return "airliner";
+  if (["A1", "A2", "B4"].includes(category) || /^(C1|C2|P28|PA|BE|DA|SR|M20|TB|PC)/.test(type)) return "light";
+  return "other";
+}
+
+function aircraftPath(kind) {
+  if (kind === "glider") return "M15 2 L16 14 L29 17 L29 19 L16 17 L16 25 L20 28 L20 29 L15 27 L10 29 L10 28 L14 25 L14 17 L1 19 L1 17 L14 14 Z";
+  if (kind === "rotorcraft") return "M4 7 L14 7 L14 3 L16 3 L16 7 L27 7 L27 9 L17 9 L20 14 L20 20 L26 24 L26 26 L18 23 L16 28 L13 28 L12 22 L7 21 L4 17 L5 12 L12 10 L4 9 Z";
+  if (kind === "light") return "M15 2 L17 12 L26 16 L26 18 L17 17 L17 23 L22 26 L22 28 L15 26 L8 28 L8 26 L13 23 L13 17 L4 18 L4 16 L13 12 Z";
+  if (kind === "other") return "M15 2 L18 12 L26 16 L26 19 L18 17 L18 24 L21 27 L21 29 L15 26 L9 29 L9 27 L12 24 L12 17 L4 19 L4 16 L12 12 Z";
+  return "M15 1 L18 11 L28 16 L28 19 L18 17 L18 24 L22 27 L22 29 L15 26 L8 29 L8 27 L12 24 L12 17 L2 19 L2 16 L12 11 Z";
+}
+
 function aircraftIcon(track, selected) {
   const rotation = Number.isFinite(track.track_deg) ? track.track_deg : 0;
+  const kind = aircraftClass(track);
   const label = state.preferences.showLabels
     ? `<span class="aircraft-label">${escapeHtml(track.callsign || track.hex)}</span>`
     : "";
   return L.divIcon({
-    className: `aircraft-marker${selected ? " selected" : ""}`,
+    className: `aircraft-marker ${kind}${selected ? " selected" : ""}`,
     iconSize: [30, 30],
     iconAnchor: [15, 15],
-    html: `<svg viewBox="0 0 30 30" aria-hidden="true" style="--aircraft-color:${altitudeColour(track)};transform:rotate(${rotation}deg)"><path d="M15 1 L18 11 L28 16 L28 19 L18 17 L18 24 L22 27 L22 29 L15 26 L8 29 L8 27 L12 24 L12 17 L2 19 L2 16 L12 11 Z"/></svg>${label}`,
+    html: `<svg viewBox="0 0 30 30" aria-hidden="true" style="--aircraft-color:${altitudeColour(track)};transform:rotate(${rotation}deg)"><path d="${aircraftPath(kind)}"/></svg>${label}`,
   });
 }
 
@@ -108,11 +146,50 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
+function recordHistory(aircraft) {
+  aircraft.forEach((track) => {
+    const points = state.history.get(track.hex) || [];
+    const previous = points.at(-1);
+    if (!previous || Math.abs(previous[0] - track.latitude) > 0.00015 || Math.abs(previous[1] - track.longitude) > 0.00015) {
+      points.push([track.latitude, track.longitude]);
+      if (points.length > 240) points.shift();
+      state.history.set(track.hex, points);
+    }
+  });
+}
+
+function passesFilters(track) {
+  if (state.filters.aircraftType !== "all" && aircraftClass(track) !== state.filters.aircraftType) return false;
+  if (state.filters.altitudeBand === "low" && track.altitude_ft >= 10000) return false;
+  if (state.filters.altitudeBand === "mid" && (track.altitude_ft < 10000 || track.altitude_ft >= 25000)) return false;
+  if (state.filters.altitudeBand === "high" && track.altitude_ft < 25000) return false;
+  return true;
+}
+
+function updateSelectedTrail() {
+  if (state.selectedTrail) {
+    state.selectedTrail.remove();
+    state.selectedTrail = null;
+  }
+  if (!state.selectedHex) return;
+  const points = state.history.get(state.selectedHex) || [];
+  if (points.length < 2) return;
+  state.selectedTrail = L.polyline(points, {
+    color: "#35ef35",
+    weight: 4,
+    opacity: 0.88,
+    lineCap: "round",
+    lineJoin: "round",
+  }).addTo(state.map);
+}
+
 function renderAircraft(aircraft) {
   state.latest = aircraft;
+  recordHistory(aircraft);
+  const visibleAircraft = aircraft.filter(passesFilters);
   const incoming = new Set();
 
-  aircraft.forEach((track) => {
+  visibleAircraft.forEach((track) => {
     incoming.add(track.hex);
     const selected = track.hex === state.selectedHex;
     let marker = state.markers.get(track.hex);
@@ -140,15 +217,19 @@ function renderAircraft(aircraft) {
     }
   });
 
-  elements.count.textContent = String(aircraft.length);
-  elements.message.hidden = aircraft.length > 0;
+  const filtering = visibleAircraft.length !== aircraft.length;
+  elements.count.textContent = filtering ? `${visibleAircraft.length}/${aircraft.length}` : String(aircraft.length);
+  elements.countLabel.textContent = filtering ? " shown" : " aircraft";
+  elements.message.hidden = visibleAircraft.length > 0;
   if (!aircraft.length) elements.message.textContent = "No aircraft in range";
+  else if (!visibleAircraft.length) elements.message.textContent = "No aircraft match filters";
 
   if (state.selectedHex) {
-    const selected = aircraft.find((track) => track.hex === state.selectedHex);
+    const selected = visibleAircraft.find((track) => track.hex === state.selectedHex);
     if (selected) populateDetail(selected);
     else clearSelection();
   }
+  updateSelectedTrail();
 }
 
 function selectAircraft(hex) {
@@ -156,6 +237,7 @@ function selectAircraft(hex) {
   const selected = state.latest.find((track) => track.hex === hex);
   if (!selected) return;
   closeOptions();
+  closeFilters();
   populateDetail(selected);
   elements.detail.hidden = false;
   renderAircraft(state.latest);
@@ -166,6 +248,7 @@ function clearSelection() {
   if (!state.selectedHex && elements.detail.hidden) return;
   state.selectedHex = null;
   elements.detail.hidden = true;
+  updateSelectedTrail();
   renderAircraft(state.latest);
 }
 
@@ -219,6 +302,48 @@ async function loadAircraftDetails(hex) {
   }
 }
 
+function airportIcon(airport) {
+  const code = airport.iata || airport.icao;
+  return L.divIcon({
+    className: `airport-marker ${airport.type}`,
+    iconSize: [30, 38],
+    iconAnchor: [15, 34],
+    html: `<span class="pin"></span><span class="tower"></span><span class="code">${escapeHtml(code)}</span>`,
+  });
+}
+
+function renderAirports() {
+  if (!state.airportLayer) return;
+  state.airportLayer.clearLayers();
+  if (!state.filters.showAirports) return;
+  const includeSmall = state.map.getZoom() >= 9;
+  state.airports
+    .filter((airport) => includeSmall || airport.type !== "small")
+    .forEach((airport) => {
+      L.marker([airport.latitude, airport.longitude], {
+        icon: airportIcon(airport),
+        keyboard: false,
+        title: `${airport.iata || airport.icao} · ${airport.name}`,
+        zIndexOffset: -500,
+      }).addTo(state.airportLayer);
+    });
+}
+
+async function loadAirports() {
+  try {
+    const response = await fetch("/data/airports-gb.json");
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const airports = await response.json();
+    state.airports = airports.filter((airport) => (
+      distanceFromHomeCoordinates(airport.latitude, airport.longitude) <= state.config.range_nm * 1.4
+    ));
+    state.map.attributionControl.addAttribution('Airports: <a href="https://ourairports.com/data/">OurAirports</a>');
+    renderAirports();
+  } catch (error) {
+    console.warn("Airport layer unavailable", error);
+  }
+}
+
 function loadPreferences() {
   try {
     const saved = JSON.parse(window.localStorage.getItem("piradar-display") || "{}");
@@ -227,6 +352,39 @@ function loadPreferences() {
     if (typeof saved.showLabels === "boolean") state.preferences.showLabels = saved.showLabels;
   } catch (error) {
     console.warn("Could not load display preferences", error);
+  }
+}
+
+function loadFilters() {
+  try {
+    const saved = JSON.parse(window.localStorage.getItem("piradar-filters") || "{}");
+    if (["all", "airliner", "light", "rotorcraft", "glider", "other"].includes(saved.aircraftType)) state.filters.aircraftType = saved.aircraftType;
+    if (["all", "low", "mid", "high"].includes(saved.altitudeBand)) state.filters.altitudeBand = saved.altitudeBand;
+    if (typeof saved.showAirports === "boolean") state.filters.showAirports = saved.showAirports;
+  } catch (error) {
+    console.warn("Could not load filters", error);
+  }
+}
+
+function filtersActive() {
+  return state.filters.aircraftType !== "all" || state.filters.altitudeBand !== "all";
+}
+
+function applyFilters() {
+  document.querySelectorAll(".choice-grid button").forEach((button) => {
+    const option = button.parentElement.dataset.filter;
+    button.setAttribute("aria-pressed", String(state.filters[option] === button.dataset.value));
+  });
+  elements.showAirports.checked = state.filters.showAirports;
+  elements.filterControl.dataset.active = String(filtersActive());
+  try {
+    window.localStorage.setItem("piradar-filters", JSON.stringify(state.filters));
+  } catch (error) {
+    console.warn("Could not save filters", error);
+  }
+  if (state.map) {
+    renderAircraft(state.latest);
+    renderAirports();
   }
 }
 
@@ -247,6 +405,7 @@ function applyPreferences() {
 
 function openOptions() {
   clearSelection();
+  closeFilters();
   elements.options.hidden = false;
   elements.optionsControl.setAttribute("aria-expanded", "true");
 }
@@ -254,6 +413,18 @@ function openOptions() {
 function closeOptions() {
   elements.options.hidden = true;
   elements.optionsControl.setAttribute("aria-expanded", "false");
+}
+
+function openFilters() {
+  clearSelection();
+  closeOptions();
+  elements.filters.hidden = false;
+  elements.filterControl.setAttribute("aria-expanded", "true");
+}
+
+function closeFilters() {
+  elements.filters.hidden = true;
+  elements.filterControl.setAttribute("aria-expanded", "false");
 }
 
 async function updateAircraft() {
@@ -291,8 +462,11 @@ async function start() {
     state.config = await response.json();
     elements.range.textContent = String(state.config.range_nm);
     loadPreferences();
+    loadFilters();
     applyPreferences();
+    applyFilters();
     initializeMap();
+    loadAirports();
     await updateAircraft();
     window.setInterval(updateAircraft, 3000);
   } catch (error) {
@@ -307,6 +481,8 @@ document.querySelector("#close-detail").addEventListener("click", clearSelection
 document.querySelector("#home-control").addEventListener("click", centerHome);
 elements.optionsControl.addEventListener("click", () => elements.options.hidden ? openOptions() : closeOptions());
 document.querySelector("#close-options").addEventListener("click", closeOptions);
+elements.filterControl.addEventListener("click", () => elements.filters.hidden ? openFilters() : closeFilters());
+document.querySelector("#close-filters").addEventListener("click", closeFilters);
 document.querySelectorAll(".choice-row button").forEach((button) => {
   button.addEventListener("click", () => {
     state.preferences[button.parentElement.dataset.option] = button.dataset.value;
@@ -316,6 +492,21 @@ document.querySelectorAll(".choice-row button").forEach((button) => {
 elements.showLabels.addEventListener("change", () => {
   state.preferences.showLabels = elements.showLabels.checked;
   applyPreferences();
+});
+document.querySelectorAll(".choice-grid button").forEach((button) => {
+  button.addEventListener("click", () => {
+    state.filters[button.parentElement.dataset.filter] = button.dataset.value;
+    applyFilters();
+  });
+});
+elements.showAirports.addEventListener("change", () => {
+  state.filters.showAirports = elements.showAirports.checked;
+  applyFilters();
+});
+document.querySelector("#reset-filters").addEventListener("click", () => {
+  state.filters.aircraftType = "all";
+  state.filters.altitudeBand = "all";
+  applyFilters();
 });
 
 window.setInterval(() => {

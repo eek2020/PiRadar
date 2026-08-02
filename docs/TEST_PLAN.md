@@ -15,6 +15,9 @@
 - Resize to 800×480 and confirm no page scrolling
 - Select and dismiss multiple aircraft details
 - Change map style, marker colour and callsign-label options; reload and confirm persistence
+- Filter by each aircraft class and altitude band; confirm shown/total counts and reset behaviour
+- Select a moving aircraft and confirm its green trail grows without blocking marker selection
+- Toggle airports and confirm OXF/EGTK and nearby coded airfields appear at appropriate zoom levels
 - Stop the backend and verify the offline state
 - Confirm keyboard focus remains visible for development accessibility
 
