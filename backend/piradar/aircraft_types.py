@@ -58,11 +58,37 @@ AIRCRAFT_TYPES: dict[str, tuple[str, str]] = {
     "GLF6": ("Gulfstream", "G650"),
     "LJ45": ("Learjet", "45"),
     "PA28": ("Piper", "PA-28 Cherokee"),
+    "P28A": ("Piper", "PA-28"),
     "PA34": ("Piper", "PA-34 Seneca"),
     "PA46": ("Piper", "PA-46 Malibu"),
+}
+
+AIRLINE_NAMES: dict[str, str] = {
+    "AFR": "Air France",
+    "BAW": "British Airways",
+    "BEL": "Brussels Airlines",
+    "DLH": "Lufthansa",
+    "EIN": "Aer Lingus",
+    "EXS": "Jet2",
+    "EZY": "easyJet",
+    "KLM": "KLM",
+    "LOG": "Loganair",
+    "RYR": "Ryanair",
+    "SAS": "SAS",
+    "TOM": "TUI Airways",
+    "VIR": "Virgin Atlantic",
+    "WUK": "Wizz Air UK",
+    "WZZ": "Wizz Air",
 }
 
 
 def describe_aircraft_type(type_code: str) -> tuple[str, str]:
     normalized = type_code.strip().upper()
     return AIRCRAFT_TYPES.get(normalized, ("", normalized))
+
+
+def describe_operator(operator_code: str) -> str:
+    normalized = operator_code.strip().upper()
+    if normalized in {"", "UNKNOWN"}:
+        return ""
+    return AIRLINE_NAMES.get(normalized, normalized)

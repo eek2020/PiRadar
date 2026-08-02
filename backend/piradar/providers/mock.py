@@ -4,7 +4,7 @@ import math
 import time
 from typing import Any
 
-from piradar.aircraft_types import describe_aircraft_type
+from piradar.aircraft_types import describe_aircraft_type, describe_operator
 from piradar.models import Aircraft
 
 
@@ -70,7 +70,7 @@ class MockAircraftProvider:
             "type_code": track.aircraft_type,
             "manufacturer": manufacturer,
             "model": model,
-            "operator": track.callsign[:3],
+            "operator": describe_operator(track.callsign[:3]),
             "route": {
                 "origin": {"code": "LHR", "name": "Heathrow Airport", "location": "London"},
                 "destination": {"code": "EDI", "name": "Edinburgh Airport", "location": "Edinburgh"},

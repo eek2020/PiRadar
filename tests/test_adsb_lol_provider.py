@@ -135,6 +135,7 @@ class AdsbLolProviderTests(unittest.TestCase):
         assert details is not None
         self.assertEqual(details["manufacturer"], "Airbus")
         self.assertEqual(details["model"], "A320")
+        self.assertEqual(details["operator"], "British Airways")
         self.assertEqual(details["route"]["origin"]["code"], "LHR")
         self.assertEqual(details["route"]["destination"]["code"], "JFK")
         self.assertEqual(provider.details("406A91"), details)

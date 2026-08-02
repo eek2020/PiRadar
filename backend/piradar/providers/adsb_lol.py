@@ -8,7 +8,7 @@ from typing import Any
 from urllib.request import Request, urlopen
 from urllib.parse import quote
 
-from piradar.aircraft_types import describe_aircraft_type
+from piradar.aircraft_types import describe_aircraft_type, describe_operator
 from piradar.models import Aircraft
 
 
@@ -153,7 +153,7 @@ class AdsbLolProvider:
             try:
                 with self._opener(request, timeout=8) as response:
                     route_payload = json.loads(response.read())
-                details["operator"] = str(route_payload.get("airline_code") or "")
+                details["operator"] = describe_operator(str(route_payload.get("airline_code") or ""))
                 airports = route_payload.get("_airports") or []
                 if len(airports) >= 2 and route_payload.get("airport_codes") != "unknown":
                     details["route"] = {
