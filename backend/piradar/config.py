@@ -15,6 +15,7 @@ class Config:
     home_longitude: float = -0.1278
     range_nm: int = 60
     provider: str = "mock"
+    refresh_seconds: int = 8
 
     @classmethod
     def load(cls, path: str | Path | None = None) -> "Config":
@@ -31,10 +32,11 @@ class Config:
             "home_longitude": os.getenv("PIRADAR_HOME_LONGITUDE"),
             "range_nm": os.getenv("PIRADAR_RANGE_NM"),
             "provider": os.getenv("PIRADAR_PROVIDER"),
+            "refresh_seconds": os.getenv("PIRADAR_REFRESH_SECONDS"),
         }
         values.update({key: value for key, value in environment.items() if value is not None})
 
-        for key in ("port", "range_nm"):
+        for key in ("port", "range_nm", "refresh_seconds"):
             if key in values:
                 values[key] = int(values[key])
         for key in ("home_latitude", "home_longitude"):
@@ -54,8 +56,10 @@ class Config:
             raise ValueError("home_longitude must be between -180 and 180")
         if not 1 <= self.range_nm <= 250:
             raise ValueError("range_nm must be between 1 and 250")
-        if self.provider not in {"mock"}:
+        if self.provider not in {"mock", "adsb_lol"}:
             raise ValueError(f"unsupported provider: {self.provider}")
+        if not 2 <= self.refresh_seconds <= 60:
+            raise ValueError("refresh_seconds must be between 2 and 60")
 
     def public_dict(self) -> dict[str, Any]:
         return {
@@ -63,4 +67,3 @@ class Config:
             for key, value in asdict(self).items()
             if key not in {"host", "port"}
         }
-

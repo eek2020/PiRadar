@@ -17,9 +17,10 @@ class MockProviderTests(unittest.TestCase):
             self.assertTrue(0 <= track.track_deg < 360)
 
     def test_is_always_healthy(self) -> None:
-        self.assertTrue(MockAircraftProvider(0, 0).healthy())
+        provider = MockAircraftProvider(0, 0)
+        self.assertTrue(provider.healthy())
+        self.assertEqual(provider.status, "live")
 
 
 if __name__ == "__main__":
     unittest.main()
-

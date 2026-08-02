@@ -16,6 +16,8 @@ Design and acceptance testing target 800×480 landscape first. Interactive contr
 - Bottom rail: visible aircraft count, configured range and data caveat
 - Detail card: appears after selecting an aircraft and can be dismissed by touch
 
+All in-range aircraft symbols remain visible. Labels are prioritized by proximity and collision-limited for legibility; selecting any symbol always reveals and labels that aircraft. Live data views include the provider's required attribution in the bottom rail.
+
 ## States
 
 - **Starting:** branded field with an initialization message
@@ -31,4 +33,3 @@ Design and acceptance testing target 800×480 landscape first. Interactive contr
 - Secondary text: muted blue-grey
 - Attention: amber; fault: coral red
 - Type: system sans-serif for UI, tabular numerals for telemetry
-

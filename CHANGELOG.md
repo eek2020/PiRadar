@@ -11,4 +11,4 @@ All notable changes will be documented here. The project follows [Semantic Versi
 - Normalized aircraft-provider interface and mock provider
 - Touch-oriented radar UI scaffold
 - Tests, CI, systemd and installation scaffolding
-
+- Live adsb.lol provider with caching and stale/offline recovery

@@ -13,6 +13,8 @@ The initial runtime has no third-party Python dependencies, so the appliance ser
 
 The backend owns configuration, provider access, normalization and static delivery. Providers return `Aircraft` domain objects. The browser owns visualization and transient selection state, and polls the normalized endpoint. No provider response shape may leak into frontend code.
 
+The `adsb_lol` adapter requests the documented nearby-aircraft endpoint at no more than the configured refresh interval. Successful results are cached; a later upstream failure returns the last snapshot as stale rather than clearing the display. The mock adapter remains the deterministic offline development source.
+
 ## Aircraft contract
 
 Each track provides an ICAO hex identifier, callsign, latitude, longitude, altitude in feet, ground speed in knots, true track in degrees and vertical rate in feet per minute. Missing upstream fields will be handled explicitly when the live provider is introduced.

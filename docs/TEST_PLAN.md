@@ -4,6 +4,7 @@
 
 - Configuration parsing, precedence and validation
 - Provider contract and generated track bounds
+- Live-provider normalization, refresh caching and stale/offline fallback
 - Health, configuration and aircraft API responses
 - Static-file routing and not-found behaviour
 - Python compilation and unit tests in CI
@@ -24,4 +25,3 @@
 - Wi-Fi loss/recovery and DNS/provider failure
 - Backend crash recovery under systemd
 - Four-hour and 24-hour soak tests with temperature and memory observation
-

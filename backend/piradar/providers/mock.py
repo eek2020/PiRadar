@@ -11,6 +11,10 @@ class MockAircraftProvider:
 
     name = "mock"
 
+    @property
+    def status(self) -> str:
+        return "live"
+
     def __init__(self, home_latitude: float, home_longitude: float) -> None:
         self.home_latitude = home_latitude
         self.home_longitude = home_longitude

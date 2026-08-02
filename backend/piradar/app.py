@@ -12,12 +12,19 @@ from urllib.parse import unquote, urlparse
 
 from piradar import __version__
 from piradar.config import Config
-from piradar.providers import AircraftProvider, MockAircraftProvider
+from piradar.providers import AdsbLolProvider, AircraftProvider, MockAircraftProvider
 
 
 def build_provider(config: Config) -> AircraftProvider:
     if config.provider == "mock":
         return MockAircraftProvider(config.home_latitude, config.home_longitude)
+    if config.provider == "adsb_lol":
+        return AdsbLolProvider(
+            config.home_latitude,
+            config.home_longitude,
+            config.range_nm,
+            config.refresh_seconds,
+        )
     raise ValueError(f"unsupported provider: {config.provider}")
 
 
@@ -36,6 +43,7 @@ def build_handler(
                     {
                         "status": "ok" if provider.healthy() else "degraded",
                         "provider": provider.name,
+                        "provider_status": provider.status,
                         "provider_healthy": provider.healthy(),
                         "version": __version__,
                     }
@@ -50,6 +58,7 @@ def build_handler(
                     {
                         "generated_at": datetime.now(UTC).isoformat(),
                         "source": provider.name,
+                        "status": provider.status,
                         "aircraft": aircraft,
                     }
                 )

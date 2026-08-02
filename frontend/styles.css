@@ -46,6 +46,7 @@ button { font: inherit; }
 .home { fill: var(--bg); stroke: var(--mint); stroke-width: 1; filter: url(#soft-glow); }
 .track { cursor: pointer; outline: none; }
 .track .plane { fill: var(--mint); filter: url(#soft-glow); }
+.track:not(.labelled) .plane { opacity: .62; }
 .track .label { fill: var(--text); font: 10px ui-monospace, monospace; paint-order: stroke; stroke: var(--bg); stroke-width: 3px; }
 .track .altitude { fill: var(--muted); font-size: 8px; }
 .track:focus .plane, .track:hover .plane { fill: white; }
@@ -65,4 +66,3 @@ button { font: inherit; }
   .info-rail { gap: 12px; }
   .caveat { display: none; }
 }
-
