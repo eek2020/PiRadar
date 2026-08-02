@@ -273,7 +273,7 @@ function populateDetail(track, resetEnrichment = false) {
   }
 }
 
-async function loadAircraftDetails(hex) {
+async function loadAircraftDetails(hex, attempt = 0) {
   try {
     const response = await fetch(`/api/aircraft/${encodeURIComponent(hex)}`, { cache: "no-store" });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -294,12 +294,26 @@ async function loadAircraftDetails(hex) {
         ? "Route matched to the aircraft’s current position"
         : "Published route · current-position match uncertain";
     } else {
-      document.querySelector("#detail-lookup").textContent = "Route unavailable for this callsign";
+      document.querySelector("#detail-lookup").textContent = attempt < 2
+        ? "Route not found yet · retrying…"
+        : "Route unavailable for this callsign";
+      if (attempt < 2) {
+        window.setTimeout(() => {
+          if (state.selectedHex === hex) loadAircraftDetails(hex, attempt + 1);
+        }, 25000);
+      }
     }
   } catch (error) {
     console.error("Aircraft detail lookup failed", error);
     if (state.selectedHex === hex) {
-      document.querySelector("#detail-lookup").textContent = "Additional details temporarily unavailable";
+      document.querySelector("#detail-lookup").textContent = attempt < 2
+        ? "Detail service unavailable · retrying…"
+        : "Additional details temporarily unavailable";
+      if (attempt < 2) {
+        window.setTimeout(() => {
+          if (state.selectedHex === hex) loadAircraftDetails(hex, attempt + 1);
+        }, 25000);
+      }
     }
   }
 }

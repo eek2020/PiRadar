@@ -141,6 +141,39 @@ class AdsbLolProviderTests(unittest.TestCase):
         self.assertEqual(provider.details("406A91"), details)
         self.assertEqual(route_calls, 1)
 
+    def test_retries_missing_route_after_short_cache(self) -> None:
+        route_calls = 0
+
+        def opener(request: object, timeout: int) -> FakeResponse:
+            nonlocal route_calls
+            if "/api/0/route/" in request.full_url:  # type: ignore[attr-defined]
+                route_calls += 1
+                if route_calls == 1:
+                    raise OSError("temporary route failure")
+                return FakeResponse(
+                    {
+                        "airline_code": "SXS",
+                        "airport_codes": "LTAI-EGCC",
+                        "plausible": False,
+                        "_airports": [
+                            {"iata": "AYT", "name": "Antalya Airport", "location": "Antalya"},
+                            {"iata": "MAN", "name": "Manchester Airport", "location": "Manchester"},
+                        ],
+                    }
+                )
+            return FakeResponse(self.payload)
+
+        provider = AdsbLolProvider(52.2, -0.9, 50, opener=opener, monotonic=lambda: self.now)
+        self.assertIsNone(provider.details("406A91")["route"])  # type: ignore[index]
+        self.now += 21
+        details = provider.details("406A91")
+        self.assertIsNotNone(details)
+        assert details is not None
+        self.assertEqual(details["operator"], "SunExpress")
+        self.assertEqual(details["route"]["origin"]["code"], "AYT")
+        self.assertFalse(details["route"]["plausible"])
+        self.assertEqual(route_calls, 2)
+
 
 if __name__ == "__main__":
     unittest.main()

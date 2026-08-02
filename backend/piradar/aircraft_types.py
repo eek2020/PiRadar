@@ -76,6 +76,7 @@ AIRLINE_NAMES: dict[str, str] = {
     "MSR": "EgyptAir",
     "RYR": "Ryanair",
     "SAS": "SAS",
+    "SXS": "SunExpress",
     "TOM": "TUI Airways",
     "VIR": "Virgin Atlantic",
     "WUK": "Wizz Air UK",

@@ -125,8 +125,10 @@ class AdsbLolProvider:
         cache_key = f"{track.hex}:{track.callsign}"
         now = self._monotonic()
         cached = self._details_cache.get(cache_key)
-        if cached and now - cached[0] < 3600:
-            return dict(cached[1])
+        if cached:
+            cache_seconds = 3600 if cached[1].get("route") else 20
+            if now - cached[0] < cache_seconds:
+                return dict(cached[1])
 
         manufacturer, model = describe_aircraft_type(track.aircraft_type)
         details: dict[str, Any] = {
