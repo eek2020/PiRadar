@@ -174,6 +174,33 @@ class AdsbLolProviderTests(unittest.TestCase):
         self.assertFalse(details["route"]["plausible"])
         self.assertEqual(route_calls, 2)
 
+    def test_uses_static_route_fallback_when_position_lookup_fails(self) -> None:
+        def opener(request: object, timeout: int) -> FakeResponse:
+            url = request.full_url  # type: ignore[attr-defined]
+            if "/api/0/route/" in url:
+                raise OSError("plausibility service failed")
+            if "vrs-standing-data.adsb.lol" in url:
+                self.assertIn("/routes/BA/BAW216.json", url)
+                return FakeResponse(
+                    {
+                        "airline_code": "BAW",
+                        "airport_codes": "EGLL-KJFK",
+                        "_airports": [
+                            {"iata": "LHR", "name": "Heathrow Airport", "location": "London"},
+                            {"iata": "JFK", "name": "John F Kennedy Airport", "location": "New York"},
+                        ],
+                    }
+                )
+            return FakeResponse(self.payload)
+
+        provider = AdsbLolProvider(52.2, -0.9, 50, opener=opener, monotonic=lambda: self.now)
+        details = provider.details("406A91")
+        self.assertIsNotNone(details)
+        assert details is not None
+        self.assertEqual(details["route"]["origin"]["code"], "LHR")
+        self.assertEqual(details["route"]["destination"]["code"], "JFK")
+        self.assertFalse(details["route"]["plausible"])
+
 
 if __name__ == "__main__":
     unittest.main()

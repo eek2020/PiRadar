@@ -152,19 +152,33 @@ class AdsbLolProvider:
                 route_url,
                 headers={"Accept": "application/json", "User-Agent": "PiRadar/0.1"},
             )
+            route_payload: dict[str, Any] = {}
             try:
                 with self._opener(request, timeout=8) as response:
                     route_payload = json.loads(response.read())
-                details["operator"] = describe_operator(str(route_payload.get("airline_code") or ""))
-                airports = route_payload.get("_airports") or []
-                if len(airports) >= 2 and route_payload.get("airport_codes") != "unknown":
-                    details["route"] = {
-                        "origin": self._airport(airports[0]),
-                        "destination": self._airport(airports[-1]),
-                        "plausible": bool(route_payload.get("plausible", False)),
-                    }
             except (AttributeError, OSError, ValueError, TypeError, KeyError):
-                pass
+                fallback_url = (
+                    "https://vrs-standing-data.adsb.lol/routes/"
+                    f"{quote(callsign[:2], safe='')}/{quote(callsign, safe='')}.json"
+                )
+                fallback_request = Request(
+                    fallback_url,
+                    headers={"Accept": "application/json", "User-Agent": "PiRadar/0.1"},
+                )
+                try:
+                    with self._opener(fallback_request, timeout=8) as response:
+                        route_payload = json.loads(response.read())
+                except (AttributeError, OSError, ValueError, TypeError, KeyError):
+                    route_payload = {}
+
+            details["operator"] = describe_operator(str(route_payload.get("airline_code") or ""))
+            airports = route_payload.get("_airports") or []
+            if len(airports) >= 2 and route_payload.get("airport_codes") != "unknown":
+                details["route"] = {
+                    "origin": self._airport(airports[0]),
+                    "destination": self._airport(airports[-1]),
+                    "plausible": bool(route_payload.get("plausible", False)),
+                }
 
         self._details_cache[cache_key] = (now, details)
         return dict(details)
