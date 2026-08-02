@@ -19,19 +19,54 @@
       <section class="map-panel" aria-label="Nearby aircraft map">
         <div id="map"></div>
         <button id="home-control" class="home-control" type="button" aria-label="Centre map on home position">⌖</button>
+        <button id="options-control" class="options-control" type="button" aria-label="Map options" aria-expanded="false">⚙</button>
         <div id="message" class="message">Initialising map…</div>
 
+        <aside id="options" class="options" hidden>
+          <div class="panel-heading">
+            <div><p class="eyebrow">Display</p><h2>Map options</h2></div>
+            <button id="close-options" class="panel-close" type="button" aria-label="Close map options">×</button>
+          </div>
+          <fieldset>
+            <legend>Map style</legend>
+            <div class="choice-row" data-option="mapStyle">
+              <button type="button" data-value="colour">Colour</button>
+              <button type="button" data-value="dark">Dark</button>
+            </div>
+          </fieldset>
+          <fieldset>
+            <legend>Aircraft colour</legend>
+            <div class="choice-row" data-option="aircraftColour">
+              <button type="button" data-value="altitude">Altitude</button>
+              <button type="button" data-value="amber">Amber</button>
+            </div>
+            <div class="altitude-key"><span>Low</span><i></i><i></i><i></i><i></i><span>High</span></div>
+          </fieldset>
+          <label class="switch-row" for="show-labels"><span><strong>Callsign labels</strong><small>Show names beside aircraft</small></span><input id="show-labels" type="checkbox"><i></i></label>
+        </aside>
+
         <aside id="detail" class="detail" hidden>
-          <button id="close-detail" aria-label="Close aircraft details">×</button>
-          <p class="eyebrow">Selected aircraft</p>
-          <h2 id="detail-callsign">—</h2>
-          <dl>
+          <div class="panel-heading">
+            <div><p class="eyebrow">Selected aircraft</p><h2 id="detail-callsign">—</h2></div>
+            <button id="close-detail" class="panel-close" type="button" aria-label="Close aircraft details">×</button>
+          </div>
+          <div class="identity">
+            <strong id="detail-type">Aircraft type unavailable</strong>
+            <span><span id="detail-registration">—</span> · <span id="detail-operator">—</span></span>
+          </div>
+          <div class="route">
+            <div><strong id="detail-origin">—</strong><small id="detail-origin-name">Origin unavailable</small></div>
+            <span aria-hidden="true">→</span>
+            <div><strong id="detail-destination">—</strong><small id="detail-destination-name">Destination unavailable</small></div>
+          </div>
+          <p id="detail-lookup" class="lookup-state">Looking up aircraft and route…</p>
+          <dl class="telemetry">
             <div><dt>Altitude</dt><dd id="detail-altitude">—</dd></div>
             <div><dt>Speed</dt><dd id="detail-speed">—</dd></div>
             <div><dt>Distance</dt><dd id="detail-distance">—</dd></div>
             <div><dt>Track</dt><dd id="detail-track">—</dd></div>
             <div><dt>Vertical</dt><dd id="detail-vertical">—</dd></div>
-            <div><dt>ICAO</dt><dd id="detail-hex">—</dd></div>
+            <div><dt>Squawk / ICAO</dt><dd><span id="detail-squawk">—</span> · <span id="detail-hex">—</span></dd></div>
           </dl>
         </aside>
       </section>

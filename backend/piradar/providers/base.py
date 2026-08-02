@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Protocol
+from typing import Any, Protocol
 
 from piradar.models import Aircraft
 
@@ -14,3 +14,5 @@ class AircraftProvider(Protocol):
     def aircraft(self) -> list[Aircraft]: ...
 
     def healthy(self) -> bool: ...
+
+    def details(self, hex_code: str) -> dict[str, Any] | None: ...

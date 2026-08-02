@@ -35,6 +35,10 @@ class AdsbLolProviderTests(unittest.TestCase):
                     "gs": 451.6,
                     "track": 361.2,
                     "baro_rate": -640,
+                    "r": "G-EUYA",
+                    "t": "A320",
+                    "category": "A3",
+                    "squawk": "1234",
                 },
                 {"hex": "abc123", "lat": None, "lon": 0},
                 {
@@ -67,6 +71,9 @@ class AdsbLolProviderTests(unittest.TestCase):
         self.assertEqual(len(aircraft), 2)
         self.assertEqual(aircraft[0].callsign, "BAW216")
         self.assertEqual(aircraft[0].track_deg, 1)
+        self.assertEqual(aircraft[0].registration, "G-EUYA")
+        self.assertEqual(aircraft[0].aircraft_type, "A320")
+        self.assertEqual(aircraft[0].squawk, "1234")
         self.assertEqual(aircraft[1].callsign, "EI-ABC")
         self.assertEqual(aircraft[1].altitude_ft, 0)
         self.assertEqual(provider.status, "live")
@@ -100,6 +107,38 @@ class AdsbLolProviderTests(unittest.TestCase):
         provider = AdsbLolProvider(0, 0, 10, opener=fail)
         self.assertEqual(provider.aircraft(), [])
         self.assertEqual(provider.status, "offline")
+
+    def test_enriches_and_caches_selected_aircraft(self) -> None:
+        route_calls = 0
+
+        def opener(request: object, timeout: int) -> FakeResponse:
+            nonlocal route_calls
+            if "/api/0/route/" in request.full_url:  # type: ignore[attr-defined]
+                route_calls += 1
+                self.assertEqual(timeout, 8)
+                return FakeResponse(
+                    {
+                        "airline_code": "BAW",
+                        "airport_codes": "EGLL-KJFK",
+                        "plausible": True,
+                        "_airports": [
+                            {"iata": "LHR", "name": "Heathrow Airport", "location": "London"},
+                            {"iata": "JFK", "name": "John F Kennedy Airport", "location": "New York"},
+                        ],
+                    }
+                )
+            return FakeResponse(self.payload)
+
+        provider = AdsbLolProvider(52.2, -0.9, 50, opener=opener, monotonic=lambda: self.now)
+        details = provider.details("406a91")
+        self.assertIsNotNone(details)
+        assert details is not None
+        self.assertEqual(details["manufacturer"], "Airbus")
+        self.assertEqual(details["model"], "A320")
+        self.assertEqual(details["route"]["origin"]["code"], "LHR")
+        self.assertEqual(details["route"]["destination"]["code"], "JFK")
+        self.assertEqual(provider.details("406A91"), details)
+        self.assertEqual(route_calls, 1)
 
 
 if __name__ == "__main__":

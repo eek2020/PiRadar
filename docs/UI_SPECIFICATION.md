@@ -14,10 +14,11 @@ Design and acceptance testing target 800×480 landscape first. Interactive contr
 - Full-screen geographic map centred on the configured home location
 - Oriented aircraft symbols placed over towns, roads and other geographic context
 - Home control and large zoom controls suitable for touch
-- Selected aircraft opens a compact telemetry card over the map
+- Selected aircraft opens a compact identity, route and telemetry card over the map
+- Display options provide colour/dark map styles, altitude/amber aircraft colours and optional callsign labels
 - Bottom rail: visible aircraft count, configured range and data caveat
 
-The default zoom deliberately shows a useful local subset rather than forcing the entire configured query radius onto one screen. Users can pan, zoom and return home. All loaded aircraft remain on the map and can be selected directly. Live views show both aircraft-data and map-data attribution.
+The default zoom deliberately shows a useful local subset rather than forcing the entire configured query radius onto one screen. Users can pan, zoom and return home. All loaded aircraft remain on the map and can be selected directly. Aircraft identity and route enrichment is loaded only after selection and explicitly identifies unavailable or uncertain data. Display preferences persist locally in the kiosk browser. Live views show both aircraft-data and map-data attribution.
 
 ## States
 
@@ -31,7 +32,7 @@ The default zoom deliberately shows a useful local subset rather than forcing th
 ## Design tokens
 
 - Background: near-black navy
-- Primary plotting colour: phosphor mint
+- Primary plotting colour: altitude scale from green through cyan and amber to coral, with an amber-only option
 - Secondary text: muted blue-grey
 - Attention: amber; fault: coral red
 - Type: system sans-serif for UI, tabular numerals for telemetry

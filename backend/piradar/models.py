@@ -14,7 +14,10 @@ class Aircraft:
     ground_speed_kt: int
     track_deg: int
     vertical_rate_fpm: int = 0
+    registration: str = ""
+    aircraft_type: str = ""
+    category: str = ""
+    squawk: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
-

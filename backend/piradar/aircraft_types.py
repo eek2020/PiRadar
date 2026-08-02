@@ -1,0 +1,68 @@
+from __future__ import annotations
+
+
+# Common ICAO type designators seen in UK and European traffic. Unknown codes are
+# still useful and are returned unchanged rather than being hidden.
+AIRCRAFT_TYPES: dict[str, tuple[str, str]] = {
+    "A319": ("Airbus", "A319"),
+    "A320": ("Airbus", "A320"),
+    "A20N": ("Airbus", "A320neo"),
+    "A321": ("Airbus", "A321"),
+    "A21N": ("Airbus", "A321neo"),
+    "A332": ("Airbus", "A330-200"),
+    "A333": ("Airbus", "A330-300"),
+    "A339": ("Airbus", "A330-900neo"),
+    "A343": ("Airbus", "A340-300"),
+    "A359": ("Airbus", "A350-900"),
+    "A35K": ("Airbus", "A350-1000"),
+    "A388": ("Airbus", "A380-800"),
+    "AT43": ("ATR", "ATR 42"),
+    "AT72": ("ATR", "ATR 72"),
+    "B737": ("Boeing", "737-700"),
+    "B738": ("Boeing", "737-800"),
+    "B739": ("Boeing", "737-900"),
+    "B38M": ("Boeing", "737 MAX 8"),
+    "B39M": ("Boeing", "737 MAX 9"),
+    "B744": ("Boeing", "747-400"),
+    "B748": ("Boeing", "747-8"),
+    "B752": ("Boeing", "757-200"),
+    "B763": ("Boeing", "767-300"),
+    "B772": ("Boeing", "777-200"),
+    "B773": ("Boeing", "777-300"),
+    "B77L": ("Boeing", "777-200LR/F"),
+    "B77W": ("Boeing", "777-300ER"),
+    "B788": ("Boeing", "787-8"),
+    "B789": ("Boeing", "787-9"),
+    "B78X": ("Boeing", "787-10"),
+    "BE20": ("Beechcraft", "King Air 200"),
+    "BE40": ("Beechcraft", "Beechjet 400"),
+    "C152": ("Cessna", "152"),
+    "C172": ("Cessna", "172 Skyhawk"),
+    "C182": ("Cessna", "182 Skylane"),
+    "C208": ("Cessna", "208 Caravan"),
+    "C25A": ("Cessna", "Citation CJ2"),
+    "C25B": ("Cessna", "Citation CJ3"),
+    "C25C": ("Cessna", "Citation CJ4"),
+    "CL35": ("Bombardier", "Challenger 350"),
+    "CRJ2": ("Bombardier", "CRJ200"),
+    "CRJ7": ("Bombardier", "CRJ700"),
+    "CRJ9": ("Bombardier", "CRJ900"),
+    "DH8D": ("De Havilland Canada", "Dash 8-400"),
+    "E170": ("Embraer", "E170"),
+    "E190": ("Embraer", "E190"),
+    "E195": ("Embraer", "E195"),
+    "E290": ("Embraer", "E190-E2"),
+    "E295": ("Embraer", "E195-E2"),
+    "GLF4": ("Gulfstream", "GIV"),
+    "GLF5": ("Gulfstream", "GV"),
+    "GLF6": ("Gulfstream", "G650"),
+    "LJ45": ("Learjet", "45"),
+    "PA28": ("Piper", "PA-28 Cherokee"),
+    "PA34": ("Piper", "PA-34 Seneca"),
+    "PA46": ("Piper", "PA-46 Malibu"),
+}
+
+
+def describe_aircraft_type(type_code: str) -> tuple[str, str]:
+    normalized = type_code.strip().upper()
+    return AIRCRAFT_TYPES.get(normalized, ("", normalized))

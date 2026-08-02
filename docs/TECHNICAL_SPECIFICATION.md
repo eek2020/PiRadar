@@ -15,11 +15,11 @@ The backend owns configuration, provider access, normalization and static delive
 
 The frontend vendors Leaflet 1.9.4 locally and reads its raster tile URL template from public configuration. The initial default is the standard OpenStreetMap HTTPS tile service. Browser caching and referer behaviour are left intact, attribution remains visible, and PiRadar never prefetches or bulk-downloads tiles. A production release must review tile capacity and may select another OSM-derived provider without changing the application code.
 
-The `adsb_lol` adapter requests the documented nearby-aircraft endpoint at no more than the configured refresh interval. Successful results are cached; a later upstream failure returns the last snapshot as stale rather than clearing the display. The mock adapter remains the deterministic offline development source.
+The `adsb_lol` adapter requests the documented nearby-aircraft endpoint at no more than the configured refresh interval. Successful results are cached; a later upstream failure returns the last snapshot as stale rather than clearing the display. Selecting an aircraft may request adsb.lol's route endpoint; enrichment is cached for one hour and route lookup failure never interrupts position updates. The mock adapter remains the deterministic offline development source.
 
 ## Aircraft contract
 
-Each track provides an ICAO hex identifier, callsign, latitude, longitude, altitude in feet, ground speed in knots, true track in degrees and vertical rate in feet per minute. Missing upstream fields will be handled explicitly when the live provider is introduced.
+Each track provides an ICAO hex identifier, callsign, registration, ICAO aircraft type, emitter category, squawk, latitude, longitude, altitude in feet, ground speed in knots, true track in degrees and vertical rate in feet per minute. The selected-aircraft endpoint adds a human-readable manufacturer/model for recognised type codes and a plausible origin/destination route when available. Missing upstream fields remain explicit rather than being guessed.
 
 ## Configuration precedence
 

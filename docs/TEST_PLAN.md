@@ -4,7 +4,7 @@
 
 - Configuration parsing, precedence and validation
 - Provider contract and generated track bounds
-- Live-provider normalization, refresh caching and stale/offline fallback
+- Live-provider normalization, refresh caching, selected-aircraft enrichment and stale/offline fallback
 - Health, configuration and aircraft API responses
 - Static-file routing and not-found behaviour
 - Python compilation and unit tests in CI
@@ -14,13 +14,14 @@
 - Run with mock data and verify continuous track motion
 - Resize to 800×480 and confirm no page scrolling
 - Select and dismiss multiple aircraft details
+- Change map style, marker colour and callsign-label options; reload and confirm persistence
 - Stop the backend and verify the offline state
 - Confirm keyboard focus remains visible for development accessibility
 
 ## Target hardware
 
 - Cold-boot and shutdown tests
-- Touch accuracy at edges and controls
+- Touch accuracy at edges, map gestures, aircraft selection and display controls
 - Chromium kiosk and pointer hiding
 - Wi-Fi loss/recovery and DNS/provider failure
 - Backend crash recovery under systemd

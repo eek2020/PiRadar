@@ -43,6 +43,12 @@ class AppTests(unittest.TestCase):
         self.assertEqual(snapshot["status"], "live")
         self.assertGreater(len(snapshot["aircraft"]), 0)
         self.assertIn("callsign", snapshot["aircraft"][0])
+        self.assertIn("aircraft_type", snapshot["aircraft"][0])
+
+    def test_aircraft_details(self) -> None:
+        details = self.get_json("/api/aircraft/406A91")
+        self.assertEqual(details["manufacturer"], "Airbus")
+        self.assertEqual(details["route"]["origin"]["code"], "LHR")
 
     def test_serves_frontend(self) -> None:
         with urlopen(self.base_url + "/", timeout=2) as response:
@@ -50,6 +56,8 @@ class AppTests(unittest.TestCase):
         self.assertIn("<title>PiRadar</title>", body)
         self.assertIn('id="map"', body)
         self.assertIn('id="detail-distance"', body)
+        self.assertIn('id="options-control"', body)
+        self.assertIn('id="detail-type"', body)
 
     def test_serves_vendored_map_runtime(self) -> None:
         with urlopen(self.base_url + "/vendor/leaflet/leaflet.js", timeout=2) as response:

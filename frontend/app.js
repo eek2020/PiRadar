@@ -6,6 +6,11 @@ const state = {
   markers: new Map(),
   selectedHex: null,
   latest: [],
+  preferences: {
+    mapStyle: "colour",
+    aircraftColour: "altitude",
+    showLabels: false,
+  },
 };
 
 const elements = {
@@ -15,6 +20,9 @@ const elements = {
   count: document.querySelector("#aircraft-count"),
   range: document.querySelector("#range"),
   detail: document.querySelector("#detail"),
+  options: document.querySelector("#options"),
+  optionsControl: document.querySelector("#options-control"),
+  showLabels: document.querySelector("#show-labels"),
   attribution: document.querySelector("#attribution"),
 };
 
@@ -69,14 +77,35 @@ function distanceFromHome(track) {
   return Math.hypot(latNm, lonNm);
 }
 
+function altitudeColour(track) {
+  if (state.preferences.aircraftColour === "amber") return "#ffc56e";
+  if (track.altitude_ft <= 0) return "#aeb8b6";
+  if (track.altitude_ft < 10000) return "#65e5a5";
+  if (track.altitude_ft < 25000) return "#65cfff";
+  if (track.altitude_ft < 35000) return "#ffc45f";
+  return "#ff7f78";
+}
+
 function aircraftIcon(track, selected) {
   const rotation = Number.isFinite(track.track_deg) ? track.track_deg : 0;
+  const label = state.preferences.showLabels
+    ? `<span class="aircraft-label">${escapeHtml(track.callsign || track.hex)}</span>`
+    : "";
   return L.divIcon({
     className: `aircraft-marker${selected ? " selected" : ""}`,
     iconSize: [30, 30],
     iconAnchor: [15, 15],
-    html: `<svg viewBox="0 0 30 30" aria-hidden="true" style="transform:rotate(${rotation}deg)"><path d="M15 1 L18 11 L28 16 L28 19 L18 17 L18 24 L22 27 L22 29 L15 26 L8 29 L8 27 L12 24 L12 17 L2 19 L2 16 L12 11 Z"/></svg>`,
+    html: `<svg viewBox="0 0 30 30" aria-hidden="true" style="--aircraft-color:${altitudeColour(track)};transform:rotate(${rotation}deg)"><path d="M15 1 L18 11 L28 16 L28 19 L18 17 L18 24 L22 27 L22 29 L15 26 L8 29 L8 27 L12 24 L12 17 L2 19 L2 16 L12 11 Z"/></svg>${label}`,
   });
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
 function renderAircraft(aircraft) {
@@ -126,9 +155,11 @@ function selectAircraft(hex) {
   state.selectedHex = hex;
   const selected = state.latest.find((track) => track.hex === hex);
   if (!selected) return;
+  closeOptions();
   populateDetail(selected);
   elements.detail.hidden = false;
   renderAircraft(state.latest);
+  loadAircraftDetails(hex);
 }
 
 function clearSelection() {
@@ -146,6 +177,83 @@ function populateDetail(track) {
   document.querySelector("#detail-track").textContent = `${String(track.track_deg).padStart(3, "0")}°`;
   document.querySelector("#detail-vertical").textContent = `${track.vertical_rate_fpm > 0 ? "+" : ""}${track.vertical_rate_fpm.toLocaleString()} fpm`;
   document.querySelector("#detail-hex").textContent = track.hex;
+  document.querySelector("#detail-squawk").textContent = track.squawk || "—";
+  document.querySelector("#detail-registration").textContent = track.registration || "Registration unavailable";
+  document.querySelector("#detail-type").textContent = track.aircraft_type || "Aircraft type unavailable";
+  document.querySelector("#detail-operator").textContent = "Operator unavailable";
+  document.querySelector("#detail-origin").textContent = "—";
+  document.querySelector("#detail-origin-name").textContent = "Origin unavailable";
+  document.querySelector("#detail-destination").textContent = "—";
+  document.querySelector("#detail-destination-name").textContent = "Destination unavailable";
+  document.querySelector("#detail-lookup").textContent = "Looking up aircraft and route…";
+}
+
+async function loadAircraftDetails(hex) {
+  try {
+    const response = await fetch(`/api/aircraft/${encodeURIComponent(hex)}`, { cache: "no-store" });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const details = await response.json();
+    if (state.selectedHex !== hex) return;
+
+    const typeName = [details.manufacturer, details.model].filter(Boolean).join(" ");
+    document.querySelector("#detail-type").textContent = typeName || details.type_code || "Aircraft type unavailable";
+    document.querySelector("#detail-registration").textContent = details.registration || "Registration unavailable";
+    document.querySelector("#detail-operator").textContent = details.operator || "Operator unavailable";
+
+    if (details.route) {
+      document.querySelector("#detail-origin").textContent = details.route.origin.code || "—";
+      document.querySelector("#detail-origin-name").textContent = details.route.origin.location || details.route.origin.name || "Origin";
+      document.querySelector("#detail-destination").textContent = details.route.destination.code || "—";
+      document.querySelector("#detail-destination-name").textContent = details.route.destination.location || details.route.destination.name || "Destination";
+      document.querySelector("#detail-lookup").textContent = details.route.plausible
+        ? "Route matched to the aircraft’s current position"
+        : "Published route · current-position match uncertain";
+    } else {
+      document.querySelector("#detail-lookup").textContent = "Route unavailable for this callsign";
+    }
+  } catch (error) {
+    console.error("Aircraft detail lookup failed", error);
+    if (state.selectedHex === hex) {
+      document.querySelector("#detail-lookup").textContent = "Additional details temporarily unavailable";
+    }
+  }
+}
+
+function loadPreferences() {
+  try {
+    const saved = JSON.parse(window.localStorage.getItem("piradar-display") || "{}");
+    if (["colour", "dark"].includes(saved.mapStyle)) state.preferences.mapStyle = saved.mapStyle;
+    if (["altitude", "amber"].includes(saved.aircraftColour)) state.preferences.aircraftColour = saved.aircraftColour;
+    if (typeof saved.showLabels === "boolean") state.preferences.showLabels = saved.showLabels;
+  } catch (error) {
+    console.warn("Could not load display preferences", error);
+  }
+}
+
+function applyPreferences() {
+  document.querySelector(".map-panel").dataset.mapStyle = state.preferences.mapStyle;
+  document.querySelectorAll(".choice-row button").forEach((button) => {
+    const option = button.parentElement.dataset.option;
+    button.setAttribute("aria-pressed", String(state.preferences[option] === button.dataset.value));
+  });
+  elements.showLabels.checked = state.preferences.showLabels;
+  try {
+    window.localStorage.setItem("piradar-display", JSON.stringify(state.preferences));
+  } catch (error) {
+    console.warn("Could not save display preferences", error);
+  }
+  if (state.map) renderAircraft(state.latest);
+}
+
+function openOptions() {
+  clearSelection();
+  elements.options.hidden = false;
+  elements.optionsControl.setAttribute("aria-expanded", "true");
+}
+
+function closeOptions() {
+  elements.options.hidden = true;
+  elements.optionsControl.setAttribute("aria-expanded", "false");
 }
 
 async function updateAircraft() {
@@ -182,6 +290,8 @@ async function start() {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     state.config = await response.json();
     elements.range.textContent = String(state.config.range_nm);
+    loadPreferences();
+    applyPreferences();
     initializeMap();
     await updateAircraft();
     window.setInterval(updateAircraft, 3000);
@@ -195,6 +305,18 @@ async function start() {
 
 document.querySelector("#close-detail").addEventListener("click", clearSelection);
 document.querySelector("#home-control").addEventListener("click", centerHome);
+elements.optionsControl.addEventListener("click", () => elements.options.hidden ? openOptions() : closeOptions());
+document.querySelector("#close-options").addEventListener("click", closeOptions);
+document.querySelectorAll(".choice-row button").forEach((button) => {
+  button.addEventListener("click", () => {
+    state.preferences[button.parentElement.dataset.option] = button.dataset.value;
+    applyPreferences();
+  });
+});
+elements.showLabels.addEventListener("change", () => {
+  state.preferences.showLabels = elements.showLabels.checked;
+  applyPreferences();
+});
 
 window.setInterval(() => {
   elements.clock.textContent = new Date().toISOString().slice(11, 19) + "Z";

@@ -63,6 +63,17 @@ def build_handler(
                     }
                 )
                 return
+            if path.startswith("/api/aircraft/"):
+                hex_code = unquote(path.removeprefix("/api/aircraft/")).strip().upper()
+                if len(hex_code) != 6 or any(character not in "0123456789ABCDEF" for character in hex_code):
+                    self._json({"error": "invalid aircraft identifier"}, HTTPStatus.BAD_REQUEST)
+                    return
+                details = provider.details(hex_code)
+                if details is None:
+                    self._json({"error": "aircraft not found"}, HTTPStatus.NOT_FOUND)
+                    return
+                self._json(details)
+                return
             if path.startswith("/api/"):
                 self._json({"error": "not found"}, HTTPStatus.NOT_FOUND)
                 return

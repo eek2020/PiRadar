@@ -6,7 +6,9 @@ import time
 from collections.abc import Callable
 from typing import Any
 from urllib.request import Request, urlopen
+from urllib.parse import quote
 
+from piradar.aircraft_types import describe_aircraft_type
 from piradar.models import Aircraft
 
 
@@ -37,6 +39,7 @@ class AdsbLolProvider:
         self._last_attempt = float("-inf")
         self._has_succeeded = False
         self._last_error: str | None = None
+        self._details_cache: dict[str, tuple[float, dict[str, Any]]] = {}
 
     @property
     def status(self) -> str:
@@ -105,9 +108,72 @@ class AdsbLolProvider:
                         )
                         or 0
                     ),
+                    registration=registration,
+                    aircraft_type=str(item.get("t") or "").strip().upper(),
+                    category=str(item.get("category") or "").strip().upper(),
+                    squawk=str(item.get("squawk") or "").strip(),
                 )
             )
         return normalized[:250]
+
+    def details(self, hex_code: str) -> dict[str, Any] | None:
+        normalized_hex = hex_code.strip().upper()
+        track = next((item for item in self.aircraft() if item.hex == normalized_hex), None)
+        if track is None:
+            return None
+
+        cache_key = f"{track.hex}:{track.callsign}"
+        now = self._monotonic()
+        cached = self._details_cache.get(cache_key)
+        if cached and now - cached[0] < 3600:
+            return dict(cached[1])
+
+        manufacturer, model = describe_aircraft_type(track.aircraft_type)
+        details: dict[str, Any] = {
+            "hex": track.hex,
+            "callsign": track.callsign,
+            "registration": track.registration,
+            "type_code": track.aircraft_type,
+            "manufacturer": manufacturer,
+            "model": model,
+            "operator": "",
+            "route": None,
+        }
+
+        callsign = track.callsign.strip().upper()
+        if callsign and callsign != track.hex and callsign != track.registration.upper():
+            route_url = (
+                "https://api.adsb.lol/api/0/route/"
+                f"{quote(callsign, safe='')}/{track.latitude}/{track.longitude}"
+            )
+            request = Request(
+                route_url,
+                headers={"Accept": "application/json", "User-Agent": "PiRadar/0.1"},
+            )
+            try:
+                with self._opener(request, timeout=8) as response:
+                    route_payload = json.loads(response.read())
+                details["operator"] = str(route_payload.get("airline_code") or "")
+                airports = route_payload.get("_airports") or []
+                if len(airports) >= 2 and route_payload.get("airport_codes") != "unknown":
+                    details["route"] = {
+                        "origin": self._airport(airports[0]),
+                        "destination": self._airport(airports[-1]),
+                        "plausible": bool(route_payload.get("plausible", False)),
+                    }
+            except (AttributeError, OSError, ValueError, TypeError, KeyError):
+                pass
+
+        self._details_cache[cache_key] = (now, details)
+        return dict(details)
+
+    @staticmethod
+    def _airport(payload: dict[str, Any]) -> dict[str, str]:
+        return {
+            "code": str(payload.get("iata") or payload.get("icao") or "").upper(),
+            "name": str(payload.get("name") or ""),
+            "location": str(payload.get("location") or ""),
+        }
 
     @staticmethod
     def _number(value: Any, default: float | None = None) -> float | None:
