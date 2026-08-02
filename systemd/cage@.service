@@ -28,6 +28,7 @@ ExecStartPost=+sh -c "tty_name='%i'; exec chvt $${tty_name#tty}"
 
 Restart=always
 RestartSec=3
+TimeoutStopSec=5
 
 [Install]
 WantedBy=graphical.target
