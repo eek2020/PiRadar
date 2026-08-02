@@ -1,0 +1,25 @@
+name: Feature
+description: Propose a focused PiRadar capability
+title: "feat: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: outcome
+    attributes:
+      label: User outcome
+      description: What should become possible, and for whom?
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: List observable signals that mean the work is complete.
+    validations:
+      required: true
+  - type: textarea
+    id: hardware
+    attributes:
+      label: Hardware or appliance impact
+      description: Note touch, display, performance, boot, network or enclosure considerations.
+

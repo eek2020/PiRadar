@@ -1,0 +1,9 @@
+{
+  "host": "127.0.0.1",
+  "port": 8080,
+  "home_latitude": 51.5074,
+  "home_longitude": -0.1278,
+  "range_nm": 60,
+  "provider": "mock"
+}
+

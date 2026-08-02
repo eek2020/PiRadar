@@ -1,0 +1,33 @@
+[Unit]
+Description=PiRadar kiosk on %I
+After=systemd-user-sessions.service dbus.socket systemd-logind.service piradar.service
+Wants=dbus.socket systemd-logind.service
+Requires=piradar.service
+Before=graphical.target
+ConditionPathExists=/dev/tty0
+Conflicts=getty@%i.service
+After=getty@%i.service
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi
+PAMName=cage
+
+UtmpIdentifier=%I
+UtmpMode=user
+
+TTYPath=/dev/%I
+TTYReset=yes
+TTYVHangup=yes
+TTYVTDisallocate=yes
+StandardInput=tty-fail
+
+ExecStart=/usr/bin/cage -s -- /opt/piradar/scripts/start-kiosk.sh
+ExecStartPost=+sh -c "tty_name='%i'; exec chvt $${tty_name#tty}"
+
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=graphical.target

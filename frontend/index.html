@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <meta name="theme-color" content="#071014">
+    <title>PiRadar</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <main class="appliance">
+      <header class="status-rail">
+        <div class="brand"><span class="brand-mark" aria-hidden="true"></span><strong>PiRadar</strong></div>
+        <div id="connection" class="connection" data-state="starting"><span class="status-dot"></span><span>Starting</span></div>
+        <time id="clock">--:--:--Z</time>
+      </header>
+
+      <section class="radar-panel" aria-label="Nearby aircraft radar">
+        <svg id="radar" viewBox="0 0 800 400" role="img" aria-labelledby="radar-title radar-description">
+          <title id="radar-title">Nearby aircraft</title>
+          <desc id="radar-description">A radar-style plot centred on the configured home location.</desc>
+          <defs>
+            <radialGradient id="radar-glow">
+              <stop offset="0" stop-color="#16332f"></stop>
+              <stop offset="1" stop-color="#071014"></stop>
+            </radialGradient>
+            <filter id="soft-glow"><feGaussianBlur stdDeviation="2" result="blur"></feGaussianBlur><feMerge><feMergeNode in="blur"></feMergeNode><feMergeNode in="SourceGraphic"></feMergeNode></feMerge></filter>
+          </defs>
+          <circle class="radar-field" cx="400" cy="200" r="184"></circle>
+          <g class="grid" aria-hidden="true">
+            <circle cx="400" cy="200" r="46"></circle><circle cx="400" cy="200" r="92"></circle><circle cx="400" cy="200" r="138"></circle><circle cx="400" cy="200" r="184"></circle>
+            <path d="M216 200H584M400 16V384"></path>
+            <path d="M270 70L530 330M530 70L270 330" class="grid-minor"></path>
+            <text x="400" y="13">N</text><text x="592" y="204">E</text><text x="400" y="398">S</text><text x="204" y="204">W</text>
+          </g>
+          <g id="tracks"></g>
+          <g class="home" aria-label="Home position"><circle cx="400" cy="200" r="5"></circle><path d="M390 200H410M400 190V210"></path></g>
+        </svg>
+        <div id="message" class="message">Initialising radar…</div>
+        <aside id="detail" class="detail" hidden>
+          <button id="close-detail" aria-label="Close aircraft details">×</button>
+          <p class="eyebrow">Selected aircraft</p>
+          <h2 id="detail-callsign">—</h2>
+          <dl>
+            <div><dt>Altitude</dt><dd id="detail-altitude">—</dd></div>
+            <div><dt>Speed</dt><dd id="detail-speed">—</dd></div>
+            <div><dt>Track</dt><dd id="detail-track">—</dd></div>
+            <div><dt>ICAO</dt><dd id="detail-hex">—</dd></div>
+          </dl>
+        </aside>
+      </section>
+
+      <footer class="info-rail">
+        <span><strong id="aircraft-count">0</strong> aircraft</span>
+        <span>Range <strong id="range">--</strong> NM</span>
+        <span class="caveat">Informational display · not for navigation</span>
+      </footer>
+    </main>
+    <script src="/app.js" defer></script>
+  </body>
+</html>
+
