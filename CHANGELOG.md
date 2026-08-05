@@ -17,3 +17,4 @@ All notable changes will be documented here. The project follows [Semantic Versi
 - In-app NetworkManager Wi-Fi scanning and connection controls
 - Touchscreen calibration and kiosk input hardening for the reference display
 - Public contribution and security-reporting guidance
+- Hardware-beta README with verified display, stylus, Wi-Fi, operating, and future receiver guidance

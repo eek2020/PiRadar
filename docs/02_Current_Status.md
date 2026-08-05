@@ -1,6 +1,6 @@
 # Current Status
 
-## Proven on the prototype
+## Proven on the reference appliance
 
 - Raspberry Pi OS installed
 - Raspberry Pi Connect working
@@ -17,14 +17,13 @@
 
 ## Clean implementation
 
-The repository now contains a working hardware-alpha implementation: a Python service, mock and adsb.lol aircraft-data providers, a geographic browser radar UI, persistent settings, tests and deployment support.
+The repository now contains a working hardware-beta implementation: a Python service, mock and adsb.lol aircraft-data providers, a geographic browser radar UI, persistent settings, tests and deployment support. The current build has been demonstrated to its new owner on the reference Pi, including calibrated touch and in-app Wi-Fi selection.
 The deployment scaffold incorporates the proven Cage, Wayland and Chromium kiosk route from Spike 001.
 
 ## Outstanding
 
-- Confirm touch calibration at all four display edges
 - Confirm production usage expectations with the adsb.lol operator
-- Configure production autostart and kiosk session
+- Reproduce the complete installation from a clean OS image
 - Add the custom boot splash
 - Add watchdog and offline recovery validation
 - Implement and explicitly enable optional paid-provider adapters only if a service is selected later

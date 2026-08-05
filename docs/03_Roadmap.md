@@ -9,8 +9,8 @@
 
 ## Phase 2 — Kiosk appliance
 
-- [ ] Calibrate touch
-- [ ] Launch Chromium automatically in kiosk mode
+- [x] Calibrate touch on the reference XPT2046 display
+- [x] Launch Chromium automatically in kiosk mode
 - [ ] Add splash, watchdog and graceful shutdown behaviour
 
 ## Phase 3 — Radar engine
@@ -18,11 +18,13 @@
 - [x] Integrate adsb.lol behind the provider interface
 - [x] Normalize tracks behind the internal aircraft contract
 - [ ] Confirm provider production usage and attribution presentation
-- [ ] Add filtering, selection and trail history
+- [x] Add filtering, selection and trail history
 
 ## Phase 4 — Polish
 
-- [ ] Settings UI, offline states and reconnect behaviour
+- [x] Add display, postcode and Wi-Fi settings UI
+- [x] Show stale and offline provider states
+- [ ] Complete reconnect and long-duration recovery testing
 - [ ] Performance and soak testing
 - [ ] Gift-ready setup and operating guide
 

@@ -1,5 +1,9 @@
 # Release Plan
 
+The reference appliance is currently a working hardware beta following a
+successful end-to-end demonstration and handover. The remaining gates concern
+repeatability, resilience, and packaging rather than the core experience.
+
 ## Release stages
 
 1. **Developer preview:** mock provider and desktop workflow
@@ -11,4 +15,3 @@
 ## Release gate
 
 A release requires passing CI, a clean install on reference hardware, an 800×480 UI review, recovery tests and an updated changelog. Generated images or archives must include checksums and must never contain credentials or the maintainer's private location.
-

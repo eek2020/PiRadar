@@ -1,6 +1,6 @@
 # Reference Hardware
 
-## Proven prototype
+## Proven reference appliance
 
 - Raspberry Pi 3 Model B v1.2
 - Debian 13 (Trixie), 64-bit
@@ -8,7 +8,12 @@
 - XPT2046/ADS7846-compatible resistive touch controller
 - Chromium 150 on Wayland
 
-The prototype touch controller uses SPI0 chip-select 1 and GPIO 25 for PENIRQ. Debian's built-in `ads7846` overlay is enabled in `/boot/firmware/config.txt`:
+The display PCB is marked “5inch HDMI Display”, 800×480, “XPT2046 Touch
+Controller”, Rev3.0. No manufacturer name is printed. Its resistive panel works
+with a fingertip or a passive stylus; a stylus is useful for precise selection
+and does not need electronics, pairing, or charging.
+
+The reference touch controller uses SPI0 chip-select 1 and GPIO 25 for PENIRQ. Debian's built-in `ads7846` overlay is enabled in `/boot/firmware/config.txt`:
 
 ```ini
 dtparam=spi=on
@@ -32,4 +37,6 @@ only for the `vc4-hdmi` input node; it does not disable HDMI video or touch.
 
 ## Open hardware work
 
-The display board is marked “5inch HDMI Display”, 800×480, XPT2046 Touch Controller, Rev3.0. Its manufacturer is not printed. Power budget and enclosure dimensions remain to be recorded before the first hardware alpha. Local ADS-B reception later requires a compatible RTL-SDR, 1090 MHz antenna and suitable placement.
+Power measurements and enclosure dimensions remain to be recorded for a
+reproducible build. Local ADS-B reception later requires a compatible RTL-SDR,
+1090 MHz antenna, suitable placement, and a `readsb` provider integration.
