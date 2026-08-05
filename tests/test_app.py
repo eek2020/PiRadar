@@ -10,7 +10,30 @@ from urllib.request import Request, urlopen
 
 from piradar.app import create_server
 from piradar.config import Config
-from piradar.storage import CredentialsStore
+from piradar.storage import CredentialsStore, LocationStore
+
+
+class FakePostcodeGeocoder:
+    def lookup(self, postcode: str) -> dict[str, object]:
+        if postcode.replace(" ", "").upper() != "OX11AA":
+            raise ValueError("postcode not found")
+        return {"postcode": "OX1 1AA", "latitude": 51.752, "longitude": -1.2577}
+
+
+class FakeWifiManager:
+    def __init__(self) -> None:
+        self.networks = [
+            {"ssid": "Current Wi-Fi", "signal": 82, "security": "WPA2", "secured": True, "connected": True, "supported": True},
+            {"ssid": "Guest", "signal": 55, "security": "Open", "secured": False, "connected": False, "supported": True},
+        ]
+
+    def scan(self) -> list[dict[str, object]]:
+        return self.networks
+
+    def connect(self, ssid: str, password: str) -> dict[str, object]:
+        if ssid not in {network["ssid"] for network in self.networks}:
+            raise ValueError("network not scanned")
+        return {"ssid": ssid, "connected": True}
 
 
 class AppTests(unittest.TestCase):
@@ -20,7 +43,16 @@ class AppTests(unittest.TestCase):
         config = Config(host="127.0.0.1", port=0)
         frontend = Path(__file__).resolve().parents[1] / "frontend"
         credentials_store = CredentialsStore(Path(cls.temporary_directory.name) / "credentials.json")
-        cls.server = create_server(config, frontend_dir=frontend, credentials_store=credentials_store)
+        cls.location_store = LocationStore(Path(cls.temporary_directory.name) / "location.json")
+        cls.wifi_manager = FakeWifiManager()
+        cls.server = create_server(
+            config,
+            frontend_dir=frontend,
+            credentials_store=credentials_store,
+            location_store=cls.location_store,
+            postcode_geocoder=FakePostcodeGeocoder(),
+            wifi_manager=cls.wifi_manager,
+        )
         cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
         cls.thread.start()
         cls.base_url = f"http://127.0.0.1:{cls.server.server_port}"
@@ -76,7 +108,27 @@ class AppTests(unittest.TestCase):
         self.assertIn('id="filter-control"', body)
         self.assertIn('id="detail-type"', body)
         self.assertIn('id="open-services"', body)
+        self.assertIn('id="open-wifi"', body)
+        self.assertIn('id="wifi-networks"', body)
+        self.assertIn('id="wifi-password"', body)
         self.assertIn('id="airport-detail"', body)
+        self.assertIn('id="location-postcode"', body)
+        self.assertIn('id="postcode-keyboard"', body)
+        self.assertIn('data-action="backspace"', body)
+        self.assertIn('data-action="submit"', body)
+
+    def test_kiosk_controls_are_touch_optimised_and_hide_the_cursor(self) -> None:
+        with urlopen(self.base_url + "/styles.css", timeout=2) as response:
+            body = response.read().decode("utf-8")
+        self.assertIn("cursor: none !important", body)
+        self.assertIn("button, label, input { touch-action: manipulation; }", body)
+        self.assertIn("pointer-events: auto; touch-action: manipulation;", body)
+
+    def test_bogus_hdmi_pointer_is_ignored_by_libinput(self) -> None:
+        rule = Path(__file__).resolve().parents[1] / "udev" / "99-piradar-input.rules"
+        body = rule.read_text(encoding="utf-8")
+        self.assertIn('ATTRS{name}=="vc4-hdmi"', body)
+        self.assertIn('ENV{LIBINPUT_IGNORE_DEVICE}="1"', body)
 
     def test_serves_local_airport_layer(self) -> None:
         with urlopen(self.base_url + "/data/airports-gb.json", timeout=2) as response:
@@ -100,11 +152,37 @@ class AppTests(unittest.TestCase):
         self.assertIn('function selectAirport(airport)', body)
         self.assertIn('.on("click", () => selectAirport(airport))', body)
 
+    def test_kiosk_cannot_navigate_through_map_attribution(self) -> None:
+        with urlopen(self.base_url + "/app.js", timeout=2) as response:
+            javascript = response.read().decode("utf-8")
+        with urlopen(self.base_url + "/styles.css", timeout=2) as response:
+            stylesheet = response.read().decode("utf-8")
+        self.assertIn('attribution: "© OpenStreetMap contributors"', javascript)
+        self.assertIn('addAttribution("Airports: OurAirports")', javascript)
+        self.assertNotIn('attribution: \'&copy; <a href=', javascript)
+        self.assertIn('document.addEventListener("click", preventKioskNavigation, true)', javascript)
+        self.assertIn('if (link.closest(".leaflet-control-zoom")) return;', javascript)
+        self.assertIn("pointer-events: none !important", stylesheet)
+
     def test_unknown_api_is_json_404(self) -> None:
         with self.assertRaises(HTTPError) as error:
             urlopen(self.base_url + "/api/nope", timeout=2)
         self.assertEqual(error.exception.code, 404)
         self.assertEqual(error.exception.headers.get_content_type(), "application/json")
+
+    def test_postcode_updates_and_persists_radar_location(self) -> None:
+        payload = self.post_json("/api/settings/location", {"postcode": "ox1 1aa"})
+        self.assertEqual(payload["location"]["postcode"], "OX1 1AA")
+        self.assertAlmostEqual(payload["config"]["home_latitude"], 51.752)
+        self.assertEqual(self.get_json("/api/settings/location")["location"]["postcode"], "OX1 1AA")
+        self.assertEqual(self.location_store.load()["postcode"], "OX1 1AA")
+
+    def test_invalid_postcode_does_not_replace_location(self) -> None:
+        before = self.get_json("/api/settings/location")["location"]
+        with self.assertRaises(HTTPError) as error:
+            self.post_json("/api/settings/location", {"postcode": "not a postcode"})
+        self.assertEqual(error.exception.code, 400)
+        self.assertEqual(self.get_json("/api/settings/location")["location"], before)
 
     def test_credentials_api_never_returns_secret(self) -> None:
         secret = "not-a-real-flightaware-key"
@@ -135,6 +213,14 @@ class AppTests(unittest.TestCase):
         with self.assertRaises(HTTPError) as error:
             urlopen(request, timeout=2)
         self.assertEqual(error.exception.code, 400)
+
+    def test_wifi_api_lists_scanned_networks_and_connects_selection(self) -> None:
+        networks = self.get_json("/api/settings/wifi")["networks"]
+        self.assertEqual(networks[0]["ssid"], "Current Wi-Fi")
+        self.assertNotIn("password", json.dumps(networks))
+
+        connected = self.post_json("/api/settings/wifi", {"ssid": "Guest", "password": ""})
+        self.assertEqual(connected["connection"], {"ssid": "Guest", "connected": True})
 
 
 if __name__ == "__main__":

@@ -48,7 +48,7 @@ class MockAircraftProvider:
                     longitude=round(lon, 5),
                     altitude_ft=altitude,
                     ground_speed_kt=speed,
-                    track_deg=round((moving_bearing + 35) % 360),
+                    track_deg=round((moving_bearing + 35) % 360) % 360,
                     vertical_rate_fpm=climb,
                     registration=registration,
                     aircraft_type=aircraft_type,

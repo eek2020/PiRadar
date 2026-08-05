@@ -10,13 +10,14 @@
 - Full-screen geographic map, live aircraft plotting, touch pan/zoom and marker selection proven
 - Display options, aircraft filters, type-specific silhouettes, local trails and a public-domain UK airport layer implemented
 - Persistent enrichment cache and protected in-app credential storage prepared for optional data providers
+- Persistent postcode-based radar positioning and in-app Wi-Fi selection
 - Kiosk cursor hidden across the map and controls
 - Initial branded loading screen created
 - Project workspace created under `/opt/piradar`
 
 ## Clean implementation
 
-The repository now contains the initial application scaffold: a Python service, mock and adsb.lol aircraft-data providers, a browser radar UI, configuration, tests and deployment support.
+The repository now contains a working hardware-alpha implementation: a Python service, mock and adsb.lol aircraft-data providers, a geographic browser radar UI, persistent settings, tests and deployment support.
 The deployment scaffold incorporates the proven Cage, Wayland and Chromium kiosk route from Spike 001.
 
 ## Outstanding

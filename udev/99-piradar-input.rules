@@ -1,0 +1,4 @@
+# The HDMI CEC receiver advertises REL_X/REL_Y and libinput classifies it as a
+# pointer. Cage then draws a stationary mouse cursor on this touch-only kiosk.
+# Ignore only that synthetic input device; HDMI video and ADS7846 touch remain.
+ACTION!="remove", SUBSYSTEM=="input", KERNEL=="event*", ATTRS{name}=="vc4-hdmi", ENV{LIBINPUT_IGNORE_DEVICE}="1"

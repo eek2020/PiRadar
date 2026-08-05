@@ -6,10 +6,19 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from piradar.storage import CredentialsStore, EnrichmentCache
+from piradar.storage import CredentialsStore, EnrichmentCache, LocationStore
 
 
 class StorageTests(unittest.TestCase):
+    def test_location_is_persisted_privately(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "location.json"
+            store = LocationStore(path)
+            location = store.replace({"postcode": "OX1 1AA", "latitude": 51.752, "longitude": -1.2577})
+
+            self.assertEqual(location, LocationStore(path).load())
+            self.assertEqual(os.stat(path).st_mode & 0o777, 0o600)
+
     def test_enrichment_cache_persists_and_expires(self) -> None:
         now = [1000.0]
         with tempfile.TemporaryDirectory() as directory:

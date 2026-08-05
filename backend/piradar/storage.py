@@ -17,6 +17,62 @@ SERVICE_FIELDS: dict[str, tuple[str, ...]] = {
 }
 
 
+class LocationStore:
+    def __init__(self, path: str | Path) -> None:
+        self.path = Path(path)
+        self._lock = threading.RLock()
+
+    def load(self) -> dict[str, Any] | None:
+        with self._lock:
+            try:
+                payload = json.loads(self.path.read_text(encoding="utf-8"))
+            except (FileNotFoundError, json.JSONDecodeError, OSError):
+                return None
+            if not isinstance(payload, dict):
+                return None
+            postcode = payload.get("postcode")
+            latitude = payload.get("latitude")
+            longitude = payload.get("longitude")
+            if not isinstance(postcode, str):
+                return None
+            if not isinstance(latitude, (int, float)) or not -90 <= latitude <= 90:
+                return None
+            if not isinstance(longitude, (int, float)) or not -180 <= longitude <= 180:
+                return None
+            return {
+                "postcode": postcode,
+                "latitude": float(latitude),
+                "longitude": float(longitude),
+            }
+
+    def replace(self, location: dict[str, Any]) -> dict[str, Any]:
+        postcode = str(location.get("postcode") or "").strip().upper()
+        latitude = location.get("latitude")
+        longitude = location.get("longitude")
+        if not postcode or not isinstance(latitude, (int, float)) or not -90 <= latitude <= 90:
+            raise ValueError("invalid radar location")
+        if not isinstance(longitude, (int, float)) or not -180 <= longitude <= 180:
+            raise ValueError("invalid radar location")
+        stored = {"postcode": postcode, "latitude": float(latitude), "longitude": float(longitude)}
+        with self._lock:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            descriptor, temporary_path = tempfile.mkstemp(prefix="location-", dir=self.path.parent)
+            try:
+                with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+                    json.dump(stored, handle, separators=(",", ":"))
+                    handle.write("\n")
+                    handle.flush()
+                    os.fsync(handle.fileno())
+                os.chmod(temporary_path, 0o600)
+                os.replace(temporary_path, self.path)
+            finally:
+                try:
+                    os.unlink(temporary_path)
+                except FileNotFoundError:
+                    pass
+        return dict(stored)
+
+
 class EnrichmentCache:
     def __init__(self, path: str | Path, *, clock: Callable[[], float] = time.time) -> None:
         self.path = Path(path)

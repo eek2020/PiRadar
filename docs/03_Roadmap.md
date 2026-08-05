@@ -26,7 +26,15 @@
 - [ ] Performance and soak testing
 - [ ] Gift-ready setup and operating guide
 
-## Phase 5 — Local receiver
+## Phase 5 — Travel and positioning
+
+- [x] Allow a destination postcode to become the persistent radar centre
+- [ ] Add optional USB GNSS/GPS support through `gpsd`
+- [ ] Refresh the radar centre only after a configurable movement threshold or interval
+- [ ] Preserve manual postcode selection as a fallback when GPS is absent or has no fix
+- [ ] Show GPS fix age and accuracy without retaining a location history
+
+## Phase 6 — Local receiver
 
 - [ ] Add RTL-SDR and `readsb` provider
 - [ ] Support provider selection without frontend changes

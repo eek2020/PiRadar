@@ -30,6 +30,14 @@
             <div><p class="eyebrow">Display</p><h2>Map options</h2></div>
             <button id="close-options" class="panel-close" type="button" aria-label="Close map options">×</button>
           </div>
+          <form id="location-form" class="location-form">
+            <fieldset>
+              <legend>Radar location</legend>
+              <label for="location-postcode">Destination postcode</label>
+              <div class="location-entry"><input id="location-postcode" name="postcode" type="text" inputmode="none" autocomplete="postal-code" autocapitalize="characters" spellcheck="false" maxlength="9" placeholder="e.g. OX1 1AA"><button id="save-location" type="submit">Set</button></div>
+              <p id="location-status" class="location-status" aria-live="polite">Using configured home location</p>
+            </fieldset>
+          </form>
           <fieldset>
             <legend>Map style</legend>
             <div class="choice-row" data-option="mapStyle">
@@ -46,7 +54,38 @@
             <div class="altitude-key"><span>Low</span><i></i><i></i><i></i><i></i><span>High</span></div>
           </fieldset>
           <label class="switch-row" for="show-labels"><span><strong>Callsign labels</strong><small>Show names beside aircraft</small></span><input id="show-labels" type="checkbox"><i></i></label>
+          <button id="open-wifi" class="settings-link" type="button"><span><strong>Wi-Fi network</strong><small>Select from nearby networks</small></span><span aria-hidden="true">›</span></button>
           <button id="open-services" class="settings-link" type="button"><span><strong>Data services</strong><small>Optional API credentials</small></span><span aria-hidden="true">›</span></button>
+        </aside>
+
+        <section id="postcode-keyboard" class="postcode-keyboard" aria-label="Postcode keyboard" hidden>
+          <div class="keyboard-row keyboard-numbers">
+            <button type="button" data-key="1">1</button><button type="button" data-key="2">2</button><button type="button" data-key="3">3</button><button type="button" data-key="4">4</button><button type="button" data-key="5">5</button><button type="button" data-key="6">6</button><button type="button" data-key="7">7</button><button type="button" data-key="8">8</button><button type="button" data-key="9">9</button><button type="button" data-key="0">0</button>
+          </div>
+          <div class="keyboard-row keyboard-top">
+            <button type="button" data-key="Q">Q</button><button type="button" data-key="W">W</button><button type="button" data-key="E">E</button><button type="button" data-key="R">R</button><button type="button" data-key="T">T</button><button type="button" data-key="Y">Y</button><button type="button" data-key="U">U</button><button type="button" data-key="I">I</button><button type="button" data-key="O">O</button><button type="button" data-key="P">P</button>
+          </div>
+          <div class="keyboard-row keyboard-middle">
+            <button type="button" data-key="A">A</button><button type="button" data-key="S">S</button><button type="button" data-key="D">D</button><button type="button" data-key="F">F</button><button type="button" data-key="G">G</button><button type="button" data-key="H">H</button><button type="button" data-key="J">J</button><button type="button" data-key="K">K</button><button type="button" data-key="L">L</button>
+          </div>
+          <div class="keyboard-row keyboard-bottom">
+            <button type="button" data-action="symbols">#+=</button><button type="button" data-key="Z">Z</button><button type="button" data-key="X">X</button><button type="button" data-key="C">C</button><button type="button" data-key="V">V</button><button type="button" data-key="B">B</button><button type="button" data-key="N">N</button><button type="button" data-key="M">M</button><button type="button" data-action="space">Space</button><button type="button" data-action="backspace" aria-label="Delete last character">⌫</button><button type="button" data-action="submit" class="keyboard-set">Set</button>
+          </div>
+        </section>
+
+        <aside id="wifi" class="wifi" hidden>
+          <div class="panel-heading">
+            <div><p class="eyebrow">Settings</p><h2>Wi-Fi network</h2></div>
+            <button id="close-wifi" class="panel-close" type="button" aria-label="Close Wi-Fi settings">×</button>
+          </div>
+          <div class="wifi-toolbar"><p id="wifi-status" aria-live="polite">Scanning for nearby networks…</p><button id="scan-wifi" type="button">Scan again</button></div>
+          <div id="wifi-networks" class="wifi-networks" aria-label="Nearby Wi-Fi networks"></div>
+          <form id="wifi-form" class="wifi-form" hidden>
+            <strong id="wifi-selected"></strong>
+            <label id="wifi-password-label" for="wifi-password">Password</label>
+            <input id="wifi-password" name="password" type="password" inputmode="none" autocomplete="new-password" maxlength="256" spellcheck="false">
+            <div class="wifi-actions"><button id="cancel-wifi" type="button">Cancel</button><button id="connect-wifi" type="submit">Connect</button></div>
+          </form>
         </aside>
 
         <aside id="services" class="services" hidden>

@@ -25,7 +25,15 @@ if [ ! -e "$config_dir/piradar.json" ]; then
 fi
 install -m 0644 "$source_dir/systemd/piradar.service" /etc/systemd/system/piradar.service
 install -m 0644 "$source_dir/systemd/cage@.service" /etc/systemd/system/cage@.service
+install -m 0644 "$source_dir/udev/99-piradar-input.rules" /etc/udev/rules.d/99-piradar-input.rules
+install -d -m 0755 /etc/polkit-1/rules.d
+install -m 0644 "$source_dir/polkit/50-piradar-network.rules" /etc/polkit-1/rules.d/50-piradar-network.rules
+udevadm control --reload-rules
 systemctl daemon-reload
+
+if ! command -v nmcli >/dev/null 2>&1; then
+  echo "Warning: nmcli is not installed; the in-app Wi-Fi picker will be unavailable." >&2
+fi
 
 echo "PiRadar installed. Review $config_dir/piradar.json, then run:"
 echo "  systemctl enable --now piradar cage@tty1"

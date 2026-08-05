@@ -4,12 +4,16 @@ const state = {
   tileLayer: null,
   homeMarker: null,
   airportLayer: null,
+  allAirports: [],
   airports: [],
   markers: new Map(),
   history: new Map(),
   selectedTrail: null,
   selectedHex: null,
   selectedAirport: null,
+  selectedNetwork: null,
+  keyboardTarget: null,
+  keyboardSymbols: false,
   latest: [],
   preferences: {
     mapStyle: "colour",
@@ -36,10 +40,23 @@ const elements = {
   filters: document.querySelector("#filters"),
   filterControl: document.querySelector("#filter-control"),
   services: document.querySelector("#services"),
+  wifi: document.querySelector("#wifi"),
   airportDetail: document.querySelector("#airport-detail"),
   showLabels: document.querySelector("#show-labels"),
   showAirports: document.querySelector("#show-airports"),
   attribution: document.querySelector("#attribution"),
+  locationForm: document.querySelector("#location-form"),
+  locationPostcode: document.querySelector("#location-postcode"),
+  locationStatus: document.querySelector("#location-status"),
+  saveLocation: document.querySelector("#save-location"),
+  postcodeKeyboard: document.querySelector("#postcode-keyboard"),
+  wifiStatus: document.querySelector("#wifi-status"),
+  wifiNetworks: document.querySelector("#wifi-networks"),
+  wifiForm: document.querySelector("#wifi-form"),
+  wifiSelected: document.querySelector("#wifi-selected"),
+  wifiPasswordLabel: document.querySelector("#wifi-password-label"),
+  wifiPassword: document.querySelector("#wifi-password"),
+  connectWifi: document.querySelector("#connect-wifi"),
 };
 
 function setConnection(label, kind) {
@@ -55,9 +72,10 @@ function initializeMap() {
     zoomControl: false,
     zoomSnap: 0.5,
   });
+  state.map.attributionControl.setPrefix(false);
   L.control.zoom({ position: "bottomleft" }).addTo(state.map);
   state.tileLayer = L.tileLayer(state.config.map_tile_url, {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>',
+    attribution: "© OpenStreetMap contributors",
     maxZoom: 18,
   }).addTo(state.map);
 
@@ -254,6 +272,7 @@ function selectAircraft(hex) {
   closeOptions();
   closeFilters();
   closeServices();
+  closeWifi();
   closeAirportDetail();
   populateDetail(selected, true);
   elements.detail.hidden = false;
@@ -357,6 +376,7 @@ function selectAirport(airport) {
   closeOptions();
   closeFilters();
   closeServices();
+  closeWifi();
   state.selectedAirport = code;
   document.querySelector("#airport-code").textContent = code;
   document.querySelector("#airport-name").textContent = airport.name;
@@ -392,18 +412,72 @@ function renderAirports() {
     });
 }
 
+function updateAirportsForLocation() {
+  state.airports = state.allAirports.filter((airport) => (
+    distanceFromHomeCoordinates(airport.latitude, airport.longitude) <= state.config.range_nm * 1.4
+  ));
+  renderAirports();
+}
+
 async function loadAirports() {
   try {
     const response = await fetch("/data/airports-gb.json");
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const airports = await response.json();
-    state.airports = airports.filter((airport) => (
-      distanceFromHomeCoordinates(airport.latitude, airport.longitude) <= state.config.range_nm * 1.4
-    ));
-    state.map.attributionControl.addAttribution('Airports: <a href="https://ourairports.com/data/">OurAirports</a>');
-    renderAirports();
+    state.allAirports = await response.json();
+    state.map.attributionControl.addAttribution("Airports: OurAirports");
+    updateAirportsForLocation();
   } catch (error) {
     console.warn("Airport layer unavailable", error);
+  }
+}
+
+function showLocation() {
+  const postcode = state.config.postcode || "";
+  elements.locationPostcode.value = postcode;
+  elements.locationStatus.dataset.state = "";
+  elements.locationStatus.textContent = postcode
+    ? `Radar centred on ${postcode}`
+    : "Using configured home location";
+}
+
+async function saveTravelLocation() {
+  const postcode = elements.locationPostcode.value.trim();
+  if (!postcode) {
+    elements.locationStatus.dataset.state = "error";
+    elements.locationStatus.textContent = "Enter a complete UK postcode.";
+    return;
+  }
+  elements.postcodeKeyboard.hidden = true;
+  elements.saveLocation.disabled = true;
+  elements.locationStatus.dataset.state = "";
+  elements.locationStatus.textContent = "Finding postcode…";
+  try {
+    const response = await fetch("/api/settings/location", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ postcode }),
+    });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+
+    clearSelection();
+    closeAirportDetail();
+    state.config = payload.config;
+    state.markers.forEach((marker) => marker.remove());
+    state.markers.clear();
+    state.history.clear();
+    state.latest = [];
+    state.homeMarker.setLatLng([state.config.home_latitude, state.config.home_longitude]);
+    elements.range.textContent = String(state.config.range_nm);
+    updateAirportsForLocation();
+    centerHome();
+    showLocation();
+    await updateAircraft();
+  } catch (error) {
+    elements.locationStatus.dataset.state = "error";
+    elements.locationStatus.textContent = error.message || "Could not update location.";
+  } finally {
+    elements.saveLocation.disabled = false;
   }
 }
 
@@ -471,12 +545,14 @@ function openOptions() {
   closeAirportDetail();
   closeFilters();
   closeServices();
+  closeWifi();
   elements.options.hidden = false;
   elements.optionsControl.setAttribute("aria-expanded", "true");
 }
 
 function closeOptions() {
   elements.options.hidden = true;
+  elements.postcodeKeyboard.hidden = true;
   elements.optionsControl.setAttribute("aria-expanded", "false");
 }
 
@@ -485,6 +561,7 @@ function openFilters() {
   closeAirportDetail();
   closeOptions();
   closeServices();
+  closeWifi();
   elements.filters.hidden = false;
   elements.filterControl.setAttribute("aria-expanded", "true");
 }
@@ -499,12 +576,123 @@ function openServices() {
   closeAirportDetail();
   closeOptions();
   closeFilters();
+  closeWifi();
   elements.services.hidden = false;
   loadServiceStatus();
 }
 
 function closeServices() {
   elements.services.hidden = true;
+}
+
+function openWifi() {
+  clearSelection();
+  closeAirportDetail();
+  closeOptions();
+  closeFilters();
+  closeServices();
+  elements.wifi.hidden = false;
+  loadWifiNetworks();
+}
+
+function closeWifi() {
+  elements.wifi.hidden = true;
+  elements.wifiForm.hidden = true;
+  state.selectedNetwork = null;
+  if (state.keyboardTarget === elements.wifiPassword) {
+    elements.postcodeKeyboard.hidden = true;
+    state.keyboardTarget = null;
+  }
+}
+
+function signalLabel(signal) {
+  if (signal >= 75) return "Excellent";
+  if (signal >= 50) return "Good";
+  if (signal >= 25) return "Fair";
+  return "Weak";
+}
+
+function renderWifiNetworks(networks) {
+  if (!networks.length) {
+    elements.wifiNetworks.innerHTML = '<p class="services-intro">No visible Wi-Fi networks found.</p>';
+    return;
+  }
+  elements.wifiNetworks.innerHTML = networks.map((network) => `
+    <button class="wifi-network" type="button" data-ssid="${escapeHtml(network.ssid)}" data-connected="${network.connected}" ${network.supported ? "" : "disabled"}>
+      <span><strong>${escapeHtml(network.ssid)}</strong><small>${escapeHtml(network.security)}${network.supported ? "" : " · unsupported"}</small></span>
+      <span>${network.connected ? "Connected" : `${signalLabel(network.signal)} · ${network.signal}%`}</span>
+    </button>
+  `).join("");
+  elements.wifiNetworks.querySelectorAll(".wifi-network:not(:disabled)").forEach((button) => {
+    button.addEventListener("click", () => selectWifiNetwork(networks.find((network) => network.ssid === button.dataset.ssid)));
+  });
+}
+
+async function loadWifiNetworks() {
+  if (state.keyboardTarget === elements.wifiPassword) elements.postcodeKeyboard.hidden = true;
+  elements.wifiStatus.dataset.state = "";
+  elements.wifiStatus.textContent = "Scanning for nearby networks…";
+  elements.wifiForm.hidden = true;
+  state.selectedNetwork = null;
+  try {
+    const response = await fetch("/api/settings/wifi", { cache: "no-store" });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+    renderWifiNetworks(payload.networks);
+    const connected = payload.networks.find((network) => network.connected);
+    elements.wifiStatus.textContent = connected ? `Connected to ${connected.ssid}` : "Select a network";
+  } catch (error) {
+    elements.wifiNetworks.innerHTML = "";
+    elements.wifiStatus.dataset.state = "error";
+    elements.wifiStatus.textContent = error.message || "Could not scan for networks.";
+  }
+}
+
+function selectWifiNetwork(network) {
+  if (!network) return;
+  state.selectedNetwork = network;
+  elements.wifiSelected.textContent = network.ssid;
+  elements.wifiPassword.value = "";
+  elements.wifiPasswordLabel.hidden = !network.secured;
+  elements.wifiPassword.hidden = !network.secured;
+  elements.wifiForm.hidden = false;
+  if (network.secured) {
+    openKeyboard(elements.wifiPassword);
+  } else {
+    elements.postcodeKeyboard.hidden = true;
+  }
+}
+
+async function connectWifiNetwork() {
+  if (!state.selectedNetwork) return;
+  const password = elements.wifiPassword.value;
+  if (state.selectedNetwork.secured && !password) {
+    elements.wifiStatus.dataset.state = "error";
+    elements.wifiStatus.textContent = "Enter the network password.";
+    return;
+  }
+  elements.postcodeKeyboard.hidden = true;
+  elements.connectWifi.disabled = true;
+  elements.wifiStatus.dataset.state = "";
+  elements.wifiStatus.textContent = `Connecting to ${state.selectedNetwork.ssid}…`;
+  try {
+    const response = await fetch("/api/settings/wifi", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ssid: state.selectedNetwork.ssid, password }),
+    });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+    elements.wifiPassword.value = "";
+    elements.wifiForm.hidden = true;
+    elements.wifiStatus.textContent = `Connected to ${payload.connection.ssid}`;
+    window.setTimeout(loadWifiNetworks, 800);
+  } catch (error) {
+    elements.wifiStatus.dataset.state = "error";
+    elements.wifiStatus.textContent = error.message || "Could not connect to the network.";
+  } finally {
+    elements.connectWifi.disabled = false;
+  }
 }
 
 function renderServiceStatus(services) {
@@ -593,6 +781,7 @@ async function start() {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     state.config = await response.json();
     elements.range.textContent = String(state.config.range_nm);
+    showLocation();
     loadPreferences();
     loadFilters();
     applyPreferences();
@@ -616,6 +805,18 @@ elements.optionsControl.addEventListener("click", () => elements.options.hidden 
 document.querySelector("#close-options").addEventListener("click", closeOptions);
 document.querySelector("#open-services").addEventListener("click", openServices);
 document.querySelector("#close-services").addEventListener("click", closeServices);
+document.querySelector("#open-wifi").addEventListener("click", openWifi);
+document.querySelector("#close-wifi").addEventListener("click", closeWifi);
+document.querySelector("#scan-wifi").addEventListener("click", loadWifiNetworks);
+document.querySelector("#cancel-wifi").addEventListener("click", () => {
+  elements.wifiForm.hidden = true;
+  elements.postcodeKeyboard.hidden = true;
+  state.selectedNetwork = null;
+});
+elements.wifiForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  connectWifiNetwork();
+});
 document.querySelectorAll(".service-card [data-action]").forEach((button) => {
   button.addEventListener("click", () => updateService(button.closest(".service-card"), button.dataset.action === "clear"));
 });
@@ -646,6 +847,76 @@ document.querySelector("#reset-filters").addEventListener("click", () => {
   state.filters.altitudeBand = "all";
   applyFilters();
 });
+elements.locationForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  saveTravelLocation();
+});
+elements.locationPostcode.addEventListener("focus", () => {
+  openKeyboard(elements.locationPostcode);
+});
+elements.locationPostcode.addEventListener("click", () => {
+  openKeyboard(elements.locationPostcode);
+});
+elements.wifiPassword.addEventListener("focus", () => openKeyboard(elements.wifiPassword));
+elements.wifiPassword.addEventListener("click", () => openKeyboard(elements.wifiPassword));
+
+const keyboardLetters = Array.from(elements.postcodeKeyboard.querySelectorAll(".keyboard-top [data-key], .keyboard-middle [data-key], .keyboard-bottom [data-key]"));
+keyboardLetters.forEach((button) => { button.dataset.letter = button.dataset.key; });
+const keyboardSymbols = ["!", "@", "#", "$", "%", "^", "&", "*", "(", ")", "_", "-", "+", "=", "[", "]", "{", "}", ";", ":", "'", '"', ",", ".", "/", "?"];
+
+function setKeyboardSymbols(enabled) {
+  state.keyboardSymbols = enabled;
+  keyboardLetters.forEach((button, index) => {
+    button.dataset.key = enabled ? keyboardSymbols[index] : button.dataset.letter;
+    button.textContent = button.dataset.key;
+  });
+  elements.postcodeKeyboard.querySelector('[data-action="symbols"]').textContent = enabled ? "ABC" : "#+=";
+}
+
+function openKeyboard(target) {
+  state.keyboardTarget = target;
+  setKeyboardSymbols(false);
+  elements.postcodeKeyboard.querySelector('[data-action="submit"]').textContent = target === elements.wifiPassword ? "Connect" : "Set";
+  elements.postcodeKeyboard.hidden = false;
+}
+
+elements.postcodeKeyboard.addEventListener("click", (event) => {
+  const button = event.target.closest("button");
+  const target = state.keyboardTarget;
+  if (!button || !target) return;
+  if (button.dataset.action === "symbols") {
+    setKeyboardSymbols(!state.keyboardSymbols);
+    return;
+  }
+  if (button.dataset.action === "space") {
+    if (target.value.length < target.maxLength) target.value += " ";
+    return;
+  }
+  if (button.dataset.action === "backspace") {
+    target.value = target.value.slice(0, -1);
+    return;
+  }
+  if (button.dataset.action === "submit") {
+    (target === elements.wifiPassword ? elements.wifiForm : elements.locationForm).requestSubmit();
+    return;
+  }
+  if (button.dataset.key && target.value.length < target.maxLength) {
+    target.value += button.dataset.key;
+  }
+});
+
+function preventKioskNavigation(event) {
+  const link = event.target instanceof Element ? event.target.closest("a[href]") : null;
+  if (!link) return;
+  if (link.closest(".leaflet-control-zoom")) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+}
+
+document.addEventListener("click", preventKioskNavigation, true);
+document.addEventListener("auxclick", preventKioskNavigation, true);
+document.addEventListener("dragstart", preventKioskNavigation, true);
+document.addEventListener("contextmenu", (event) => event.preventDefault(), true);
 
 window.setInterval(() => {
   elements.clock.textContent = new Date().toISOString().slice(11, 19) + "Z";

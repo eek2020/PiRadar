@@ -7,23 +7,32 @@ import json
 import mimetypes
 import os
 from pathlib import Path
+import threading
 from typing import Any, Type
 from urllib.parse import unquote, urlparse
 
 from piradar import __version__
 from piradar.config import Config
+from piradar.location import PostcodeGeocoder
 from piradar.providers import AdsbLolProvider, AircraftProvider, MockAircraftProvider
-from piradar.storage import CredentialsStore, EnrichmentCache
+from piradar.storage import CredentialsStore, EnrichmentCache, LocationStore
+from piradar.wifi import NetworkManagerWifi, WifiError
 
 
-def build_provider(config: Config) -> AircraftProvider:
+def build_provider(
+    config: Config,
+    latitude: float | None = None,
+    longitude: float | None = None,
+) -> AircraftProvider:
+    centre_latitude = config.home_latitude if latitude is None else latitude
+    centre_longitude = config.home_longitude if longitude is None else longitude
     if config.provider == "mock":
-        return MockAircraftProvider(config.home_latitude, config.home_longitude)
+        return MockAircraftProvider(centre_latitude, centre_longitude)
     if config.provider == "adsb_lol":
         cache = EnrichmentCache(Path(config.state_dir) / "enrichment.sqlite3")
         return AdsbLolProvider(
-            config.home_latitude,
-            config.home_longitude,
+            centre_latitude,
+            centre_longitude,
             config.range_nm,
             config.refresh_seconds,
             cache=cache,
@@ -31,11 +40,64 @@ def build_provider(config: Config) -> AircraftProvider:
     raise ValueError(f"unsupported provider: {config.provider}")
 
 
+class RadarRuntime:
+    def __init__(
+        self,
+        config: Config,
+        location_store: LocationStore,
+        provider: AircraftProvider | None = None,
+    ) -> None:
+        self.config = config
+        self.location_store = location_store
+        self._lock = threading.RLock()
+        self._location = location_store.load() or {
+            "postcode": "",
+            "latitude": config.home_latitude,
+            "longitude": config.home_longitude,
+        }
+        self._provider = provider or build_provider(
+            config,
+            self._location["latitude"],
+            self._location["longitude"],
+        )
+
+    @property
+    def provider(self) -> AircraftProvider:
+        with self._lock:
+            return self._provider
+
+    def public_config(self) -> dict[str, Any]:
+        with self._lock:
+            payload = self.config.public_dict()
+            payload["home_latitude"] = self._location["latitude"]
+            payload["home_longitude"] = self._location["longitude"]
+            payload["postcode"] = self._location["postcode"]
+            return payload
+
+    def location(self) -> dict[str, Any]:
+        with self._lock:
+            return dict(self._location)
+
+    def replace_location(self, location: dict[str, Any]) -> dict[str, Any]:
+        replacement = build_provider(
+            self.config,
+            float(location["latitude"]),
+            float(location["longitude"]),
+        )
+        stored = self.location_store.replace(location)
+        with self._lock:
+            self._location = stored
+            self._provider = replacement
+            return dict(self._location)
+
+
 def build_handler(
     config: Config,
-    provider: AircraftProvider,
+    runtime: RadarRuntime,
     frontend_dir: Path,
     credentials_store: CredentialsStore,
+    postcode_geocoder: PostcodeGeocoder,
+    wifi_manager: NetworkManagerWifi,
 ) -> Type[BaseHTTPRequestHandler]:
     class PiRadarHandler(BaseHTTPRequestHandler):
         server_version = f"PiRadar/{__version__}"
@@ -43,6 +105,7 @@ def build_handler(
         def do_GET(self) -> None:  # noqa: N802 - stdlib handler API
             path = urlparse(self.path).path
             if path == "/api/health":
+                provider = runtime.provider
                 self._json(
                     {
                         "status": "ok" if provider.healthy() else "degraded",
@@ -54,12 +117,24 @@ def build_handler(
                 )
                 return
             if path == "/api/config":
-                self._json(config.public_dict())
+                self._json(runtime.public_config())
+                return
+            if path == "/api/settings/location":
+                self._json({"location": runtime.location()})
                 return
             if path == "/api/settings/services":
                 self._json({"services": credentials_store.summary()})
                 return
+            if path == "/api/settings/wifi":
+                try:
+                    networks = wifi_manager.scan()
+                except WifiError as error:
+                    self._json({"error": str(error)}, HTTPStatus.SERVICE_UNAVAILABLE)
+                    return
+                self._json({"networks": networks})
+                return
             if path == "/api/aircraft":
+                provider = runtime.provider
                 aircraft = [track.to_dict() for track in provider.aircraft()]
                 self._json(
                     {
@@ -71,6 +146,7 @@ def build_handler(
                 )
                 return
             if path.startswith("/api/aircraft/"):
+                provider = runtime.provider
                 hex_code = unquote(path.removeprefix("/api/aircraft/")).strip().upper()
                 if len(hex_code) != 6 or any(character not in "0123456789ABCDEF" for character in hex_code):
                     self._json({"error": "invalid aircraft identifier"}, HTTPStatus.BAD_REQUEST)
@@ -88,6 +164,36 @@ def build_handler(
 
         def do_POST(self) -> None:  # noqa: N802 - stdlib handler API
             path = urlparse(self.path).path
+            if path == "/api/settings/location":
+                try:
+                    payload = self._read_json()
+                    postcode = payload.get("postcode")
+                    if not isinstance(postcode, str):
+                        raise ValueError("postcode is required")
+                    location = runtime.replace_location(postcode_geocoder.lookup(postcode))
+                except ValueError as error:
+                    self._json({"error": str(error)}, HTTPStatus.BAD_REQUEST)
+                    return
+                self._json(
+                    {
+                        "location": location,
+                        "config": runtime.public_config(),
+                    }
+                )
+                return
+            if path == "/api/settings/wifi":
+                try:
+                    payload = self._read_json()
+                    ssid = payload.get("ssid")
+                    password = payload.get("password", "")
+                    if not isinstance(ssid, str) or not isinstance(password, str):
+                        raise WifiError("Select a network and enter its password.")
+                    connection = wifi_manager.connect(ssid, password)
+                except (ValueError, WifiError) as error:
+                    self._json({"error": str(error)}, HTTPStatus.BAD_REQUEST)
+                    return
+                self._json({"connection": connection})
+                return
             if path != "/api/settings/services":
                 self._json({"error": "not found"}, HTTPStatus.NOT_FOUND)
                 return
@@ -162,6 +268,9 @@ def create_server(
     provider: AircraftProvider | None = None,
     frontend_dir: Path | None = None,
     credentials_store: CredentialsStore | None = None,
+    location_store: LocationStore | None = None,
+    postcode_geocoder: PostcodeGeocoder | None = None,
+    wifi_manager: NetworkManagerWifi | None = None,
 ) -> ThreadingHTTPServer:
     configured_frontend = os.getenv("PIRADAR_FRONTEND_DIR")
     resolved_frontend = frontend_dir or (
@@ -170,7 +279,16 @@ def create_server(
         else Path(__file__).resolve().parents[2] / "frontend"
     )
     resolved_credentials = credentials_store or CredentialsStore(Path(config.state_dir) / "credentials.json")
-    handler = build_handler(config, provider or build_provider(config), resolved_frontend, resolved_credentials)
+    resolved_location = location_store or LocationStore(Path(config.state_dir) / "location.json")
+    runtime = RadarRuntime(config, resolved_location, provider)
+    handler = build_handler(
+        config,
+        runtime,
+        resolved_frontend,
+        resolved_credentials,
+        postcode_geocoder or PostcodeGeocoder(),
+        wifi_manager or NetworkManagerWifi(),
+    )
     return ThreadingHTTPServer((config.host, config.port), handler)
 
 
