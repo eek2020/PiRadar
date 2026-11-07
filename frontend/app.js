@@ -862,10 +862,11 @@ elements.locationForm.addEventListener("submit", (event) => {
 //   data-osk="postcode" : a large-key pad with capitals, digits, space,
 //                         delete and Set. Nothing else, because a UK postcode
 //                         needs nothing else.
-//   data-osk            : a full desktop-style (US ASCII) keyboard with Caps
-//                         Lock, both Shift keys and every printable ASCII
-//                         character, which is exactly the set a WPA Wi-Fi
-//                         passphrase or an API key can contain.
+//   data-osk            : a full UK (ISO) desktop-style keyboard with Caps
+//                         Lock, both Shift keys and the UK symbol positions,
+//                         including £ on Shift+3 and @ on Shift+'. Non-ASCII
+//                         characters such as £ are sent as UTF-8, which is
+//                         what routers and NetworkManager both use.
 //
 // Layouts are plain data, so changing a key means editing the arrays below.
 // A key is either a single character string (width 1) or an object:
@@ -874,10 +875,11 @@ elements.locationForm.addEventListener("submit", (event) => {
 //   { spacer: true, w }         empty gap, used for the row stagger
 // Widths are relative within a row; each row fills the keyboard width.
 // ---------------------------------------------------------------------------
+// UK layout: what each key types with Shift held.
 const OSK_SHIFTED = {
-  "`": "~", "1": "!", "2": "@", "3": "#", "4": "$", "5": "%", "6": "^", "7": "&",
-  "8": "*", "9": "(", "0": ")", "-": "_", "=": "+", "[": "{", "]": "}", "\\": "|",
-  ";": ":", "'": '"', ",": "<", ".": ">", "/": "?",
+  "`": "¬", "1": "!", "2": '"', "3": "£", "4": "$", "5": "%", "6": "^", "7": "&",
+  "8": "*", "9": "(", "0": ")", "-": "_", "=": "+", "[": "{", "]": "}",
+  ";": ":", "'": "@", "#": "~", "\\": "|", ",": "<", ".": ">", "/": "?",
 };
 
 const OSK_LAYOUTS = {
@@ -889,9 +891,9 @@ const OSK_LAYOUTS = {
   ],
   text: [
     [..."`1234567890-=", { action: "backspace", label: "⌫", w: 2, aria: "Delete last character" }],
-    [{ spacer: true, w: 1.5 }, ..."qwertyuiop[]", { char: "\\", w: 1.5 }],
-    [{ action: "caps", label: "Caps", w: 1.75, cls: "keyboard-mod" }, ..."asdfghjkl;'", { action: "submit", label: "Enter", w: 2.25, cls: "keyboard-set" }],
-    [{ action: "shift", label: "Shift", w: 2.25, cls: "keyboard-mod" }, ..."zxcvbnm,./", { action: "shift", label: "Shift", w: 2.75, cls: "keyboard-mod" }],
+    [{ spacer: true, w: 1.5 }, ..."qwertyuiop[]", { spacer: true, w: 1.5 }],
+    [{ action: "caps", label: "Caps", w: 1.5, cls: "keyboard-mod" }, ..."asdfghjkl;'#", { action: "submit", label: "Enter", w: 1.5, cls: "keyboard-set" }],
+    [{ action: "shift", label: "Shift", w: 1.25, cls: "keyboard-mod" }, ..."\\zxcvbnm,./", { action: "shift", label: "Shift", w: 2.75, cls: "keyboard-mod" }],
     [{ action: "clear", label: "Clear", w: 2.5, cls: "keyboard-mod" }, { action: "space", label: "Space", w: 10 }, { action: "hide", label: "Hide", w: 2.5, cls: "keyboard-mod" }],
   ],
 };
