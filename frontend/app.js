@@ -14,6 +14,8 @@ const state = {
   selectedNetwork: null,
   keyboardTarget: null,
   keyboardSymbols: false,
+  keyboardShift: "off",
+  keyboardSymbolPage: 0,
   latest: [],
   preferences: {
     mapStyle: "colour",
@@ -447,7 +449,7 @@ async function saveTravelLocation() {
     elements.locationStatus.textContent = "Enter a complete UK postcode.";
     return;
   }
-  elements.postcodeKeyboard.hidden = true;
+  closeKeyboard();
   elements.saveLocation.disabled = true;
   elements.locationStatus.dataset.state = "";
   elements.locationStatus.textContent = "Finding postcode…";
@@ -552,7 +554,7 @@ function openOptions() {
 
 function closeOptions() {
   elements.options.hidden = true;
-  elements.postcodeKeyboard.hidden = true;
+  closeKeyboard();
   elements.optionsControl.setAttribute("aria-expanded", "false");
 }
 
@@ -583,6 +585,7 @@ function openServices() {
 
 function closeServices() {
   elements.services.hidden = true;
+  closeKeyboard();
 }
 
 function openWifi() {
@@ -600,7 +603,7 @@ function closeWifi() {
   elements.wifiForm.hidden = true;
   state.selectedNetwork = null;
   if (state.keyboardTarget === elements.wifiPassword) {
-    elements.postcodeKeyboard.hidden = true;
+    closeKeyboard();
     state.keyboardTarget = null;
   }
 }
@@ -629,7 +632,7 @@ function renderWifiNetworks(networks) {
 }
 
 async function loadWifiNetworks() {
-  if (state.keyboardTarget === elements.wifiPassword) elements.postcodeKeyboard.hidden = true;
+  if (state.keyboardTarget === elements.wifiPassword) closeKeyboard();
   elements.wifiStatus.dataset.state = "";
   elements.wifiStatus.textContent = "Scanning for nearby networks…";
   elements.wifiForm.hidden = true;
@@ -659,7 +662,7 @@ function selectWifiNetwork(network) {
   if (network.secured) {
     openKeyboard(elements.wifiPassword);
   } else {
-    elements.postcodeKeyboard.hidden = true;
+    closeKeyboard();
   }
 }
 
@@ -671,7 +674,7 @@ async function connectWifiNetwork() {
     elements.wifiStatus.textContent = "Enter the network password.";
     return;
   }
-  elements.postcodeKeyboard.hidden = true;
+  closeKeyboard();
   elements.connectWifi.disabled = true;
   elements.wifiStatus.dataset.state = "";
   elements.wifiStatus.textContent = `Connecting to ${state.selectedNetwork.ssid}…`;
@@ -810,7 +813,7 @@ document.querySelector("#close-wifi").addEventListener("click", closeWifi);
 document.querySelector("#scan-wifi").addEventListener("click", loadWifiNetworks);
 document.querySelector("#cancel-wifi").addEventListener("click", () => {
   elements.wifiForm.hidden = true;
-  elements.postcodeKeyboard.hidden = true;
+  closeKeyboard();
   state.selectedNetwork = null;
 });
 elements.wifiForm.addEventListener("submit", (event) => {
@@ -851,57 +854,159 @@ elements.locationForm.addEventListener("submit", (event) => {
   event.preventDefault();
   saveTravelLocation();
 });
-elements.locationPostcode.addEventListener("focus", () => {
-  openKeyboard(elements.locationPostcode);
-});
-elements.locationPostcode.addEventListener("click", () => {
-  openKeyboard(elements.locationPostcode);
-});
+elements.locationPostcode.addEventListener("focus", () => openKeyboard(elements.locationPostcode));
+elements.locationPostcode.addEventListener("click", () => openKeyboard(elements.locationPostcode));
 elements.wifiPassword.addEventListener("focus", () => openKeyboard(elements.wifiPassword));
 elements.wifiPassword.addEventListener("click", () => openKeyboard(elements.wifiPassword));
+// Service credential fields (API keys, tokens, client secrets) use the same keyboard.
+document.querySelectorAll("input[data-osk]").forEach((input) => {
+  input.addEventListener("focus", () => openKeyboard(input));
+  input.addEventListener("click", () => openKeyboard(input));
+});
 
-const keyboardLetters = Array.from(elements.postcodeKeyboard.querySelectorAll(".keyboard-top [data-key], .keyboard-middle [data-key], .keyboard-bottom [data-key]"));
-keyboardLetters.forEach((button) => { button.dataset.letter = button.dataset.key; });
-const keyboardSymbols = ["!", "@", "#", "$", "%", "^", "&", "*", "(", ")", "_", "-", "+", "=", "[", "]", "{", "}", ";", ":", "'", '"', ",", ".", "/", "?"];
+// ---------------------------------------------------------------------------
+// On-screen keyboard
+//
+// The 26 letter keys are reused for three layers:
+//   letters  : lower case by default; Shift gives one capital, a double tap
+//              on Shift locks caps (shown as "CAPS"), a third tap releases it.
+//   symbols 1: the common punctuation used in passwords and API keys.
+//   symbols 2: brackets and the rarer characters.
+// Between them the layers cover every printable ASCII character, which is
+// exactly what a WPA passphrase allows, so any Wi-Fi password can be typed.
+// The number row is always visible.
+// ---------------------------------------------------------------------------
+const keyboardLetterKeys = Array.from(elements.postcodeKeyboard.querySelectorAll(
+  ".keyboard-top [data-key], .keyboard-middle [data-key], .keyboard-bottom [data-key]",
+));
+keyboardLetterKeys.forEach((button) => { button.dataset.letter = button.dataset.key.toLowerCase(); });
+const keyboardShiftKey = elements.postcodeKeyboard.querySelector('[data-action="shift"]');
+const keyboardSymbolsKey = elements.postcodeKeyboard.querySelector('[data-action="symbols"]');
+const keyboardSubmitKey = elements.postcodeKeyboard.querySelector('[data-action="submit"]');
+
+// 26 characters per page, in key order: top row (10), middle (9), bottom (7).
+const keyboardSymbolPages = [
+  ["!", "@", "#", "$", "%", "^", "&", "*", "(", ")",
+   "-", "_", "=", "+", ";", ":", "'", '"', "/",
+   ".", ",", "?", "<", ">", "\\", "|"],
+  ["[", "]", "{", "}", "~", "`", "<", ">", "\\", "|",
+   "-", "_", "=", "+", ";", ":", "'", '"', "/",
+   ".", ",", "?", "!", "@", "#", "&"],
+];
+const SHIFT_DOUBLE_TAP_MS = 400;
+let lastShiftTap = 0;
+
+// Repaint key labels and modifier state to match the current layer.
+function renderKeyboard() {
+  const symbols = state.keyboardSymbols;
+  const upper = state.keyboardShift !== "off";
+  keyboardLetterKeys.forEach((button, index) => {
+    const key = symbols
+      ? keyboardSymbolPages[state.keyboardSymbolPage][index]
+      : (upper ? button.dataset.letter.toUpperCase() : button.dataset.letter);
+    button.dataset.key = key;
+    button.textContent = key;
+  });
+  keyboardSymbolsKey.textContent = symbols ? "abc" : "#+=";
+  if (symbols) {
+    // In symbol mode the Shift key flips between the two symbol pages.
+    keyboardShiftKey.textContent = `${state.keyboardSymbolPage + 1}/2`;
+    keyboardShiftKey.dataset.state = "off";
+    keyboardShiftKey.setAttribute("aria-label", "Next symbol page");
+  } else {
+    keyboardShiftKey.textContent = state.keyboardShift === "lock" ? "CAPS" : "Shift";
+    keyboardShiftKey.dataset.state = state.keyboardShift;
+    keyboardShiftKey.setAttribute("aria-label", state.keyboardShift === "lock" ? "Caps lock on" : "Shift");
+  }
+}
 
 function setKeyboardSymbols(enabled) {
   state.keyboardSymbols = enabled;
-  keyboardLetters.forEach((button, index) => {
-    button.dataset.key = enabled ? keyboardSymbols[index] : button.dataset.letter;
-    button.textContent = button.dataset.key;
-  });
-  elements.postcodeKeyboard.querySelector('[data-action="symbols"]').textContent = enabled ? "ABC" : "#+=";
+  state.keyboardSymbolPage = 0;
+  renderKeyboard();
+}
+
+function pressShift() {
+  if (state.keyboardSymbols) {
+    state.keyboardSymbolPage = (state.keyboardSymbolPage + 1) % keyboardSymbolPages.length;
+  } else {
+    const now = Date.now();
+    if (state.keyboardShift === "lock") state.keyboardShift = "off";
+    else if (state.keyboardShift === "once" && now - lastShiftTap < SHIFT_DOUBLE_TAP_MS) state.keyboardShift = "lock";
+    else state.keyboardShift = state.keyboardShift === "once" ? "off" : "once";
+    lastShiftTap = now;
+  }
+  renderKeyboard();
+}
+
+// Inputs without a maxlength attribute report -1, which must mean "no limit".
+function keyboardRoom(target) {
+  return target.maxLength > 0 ? target.value.length < target.maxLength : true;
 }
 
 function openKeyboard(target) {
+  // Tapping the field that is already being typed into keeps the current
+  // shift/symbol state; only a new field resets the layout.
+  if (state.keyboardTarget === target && !elements.postcodeKeyboard.hidden) return;
   state.keyboardTarget = target;
-  setKeyboardSymbols(false);
-  elements.postcodeKeyboard.querySelector('[data-action="submit"]').textContent = target === elements.wifiPassword ? "Connect" : "Set";
+  state.keyboardSymbols = false;
+  state.keyboardSymbolPage = 0;
+  state.keyboardShift = target.dataset.oskCase === "upper" ? "lock" : "off";
+  keyboardSubmitKey.textContent = target === elements.wifiPassword ? "Connect"
+    : target.closest(".service-card") ? "Save" : "Set";
+  renderKeyboard();
   elements.postcodeKeyboard.hidden = false;
+  // Shrink tall panels so the field being typed into is not hidden behind the keyboard.
+  document.body.style.setProperty("--osk-height", `${elements.postcodeKeyboard.offsetHeight + 16}px`);
+  document.body.classList.add("osk-open");
+  target.scrollIntoView({ block: "nearest" });
 }
+
+function closeKeyboard() {
+  elements.postcodeKeyboard.hidden = true;
+  state.keyboardTarget = null;
+  document.body.classList.remove("osk-open");
+}
+
+function submitKeyboardTarget(target) {
+  if (target === elements.wifiPassword) elements.wifiForm.requestSubmit();
+  else if (target === elements.locationPostcode) elements.locationForm.requestSubmit();
+  else {
+    const card = target.closest(".service-card");
+    if (!card) return;
+    // Amadeus has two fields: move on to the next empty one before saving.
+    const next = Array.from(card.querySelectorAll("input")).find((input) => input !== target && !input.value);
+    if (next) { next.focus(); openKeyboard(next); return; }
+    closeKeyboard();
+    updateService(card);
+  }
+}
+
+// pointerdown + preventDefault stops the key stealing focus from the input,
+// so the caret stays put and the field does not lose its keyboard.
+elements.postcodeKeyboard.addEventListener("pointerdown", (event) => {
+  if (event.target.closest("button")) event.preventDefault();
+});
 
 elements.postcodeKeyboard.addEventListener("click", (event) => {
   const button = event.target.closest("button");
   const target = state.keyboardTarget;
   if (!button || !target) return;
-  if (button.dataset.action === "symbols") {
-    setKeyboardSymbols(!state.keyboardSymbols);
-    return;
+  switch (button.dataset.action) {
+    case "shift": pressShift(); return;
+    case "symbols": setKeyboardSymbols(!state.keyboardSymbols); return;
+    case "space": if (keyboardRoom(target)) target.value += " "; return;
+    case "backspace": target.value = target.value.slice(0, -1); return;
+    case "submit": submitKeyboardTarget(target); return;
+    default: break;
   }
-  if (button.dataset.action === "space") {
-    if (target.value.length < target.maxLength) target.value += " ";
-    return;
-  }
-  if (button.dataset.action === "backspace") {
-    target.value = target.value.slice(0, -1);
-    return;
-  }
-  if (button.dataset.action === "submit") {
-    (target === elements.wifiPassword ? elements.wifiForm : elements.locationForm).requestSubmit();
-    return;
-  }
-  if (button.dataset.key && target.value.length < target.maxLength) {
+  if (button.dataset.key && keyboardRoom(target)) {
     target.value += button.dataset.key;
+    // A single Shift only applies to the next letter.
+    if (!state.keyboardSymbols && state.keyboardShift === "once") {
+      state.keyboardShift = "off";
+      renderKeyboard();
+    }
   }
 });
 

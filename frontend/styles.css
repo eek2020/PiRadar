@@ -126,9 +126,14 @@ button, label, input { touch-action: manipulation; }
 .keyboard-row:first-child { margin-top: 0; }
 .keyboard-numbers, .keyboard-top { grid-template-columns: repeat(10, 1fr); }
 .keyboard-middle { grid-template-columns: repeat(9, 1fr); }
-.keyboard-bottom { grid-template-columns: repeat(11, 1fr); }
+.keyboard-bottom { grid-template-columns: 1.3fr 1.1fr repeat(7, 1fr) 1.6fr 1fr 1.4fr; }
 .postcode-keyboard button { min-width: 0; height: 44px; padding: 0; border: 1px solid rgba(125,255,213,.2); border-radius: 6px; background: rgba(255,255,255,.06); color: var(--text); font: 14px ui-monospace, monospace; }
 .postcode-keyboard button:active { border-color: var(--mint); background: rgba(125,255,213,.2); color: white; }
+.postcode-keyboard .keyboard-mod { color: var(--muted); font-size: 12px; }
+.postcode-keyboard [data-action="shift"][data-state="once"] { border-color: var(--mint); color: var(--mint); }
+.postcode-keyboard [data-action="shift"][data-state="lock"] { border-color: var(--mint); background: rgba(125,255,213,.24); color: white; font-weight: 700; }
+/* While the keyboard is up, keep scrolling panels clear of it. */
+body.osk-open .services, body.osk-open .wifi, body.osk-open .options { max-height: calc(100% - 20px - var(--osk-height, 220px)); }
 .postcode-keyboard .keyboard-set { border-color: rgba(125,255,213,.42); background: rgba(125,255,213,.16); color: var(--mint); font-weight: 700; }
 .choice-row { display: grid; grid-template-columns: 1fr 1fr; padding: 3px; border: 1px solid rgba(125,255,213,.16); border-radius: 8px; background: rgba(255,255,255,.03); }
 .choice-row button { min-height: 46px; border: 0; border-radius: 5px; background: transparent; color: var(--muted); cursor: pointer; }
