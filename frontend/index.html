@@ -34,7 +34,7 @@
             <fieldset>
               <legend>Radar location</legend>
               <label for="location-postcode">Destination postcode</label>
-              <div class="location-entry"><input id="location-postcode" data-osk-case="upper" name="postcode" type="text" inputmode="none" autocomplete="postal-code" autocapitalize="characters" spellcheck="false" maxlength="9" placeholder="e.g. OX1 1AA"><button id="save-location" type="submit">Set</button></div>
+              <div class="location-entry"><input id="location-postcode" data-osk="postcode" name="postcode" type="text" inputmode="none" autocomplete="postal-code" autocapitalize="characters" spellcheck="false" maxlength="9" placeholder="e.g. OX1 1AA"><button id="save-location" type="submit">Set</button></div>
               <p id="location-status" class="location-status" aria-live="polite">Using configured home location</p>
             </fieldset>
           </form>
@@ -58,20 +58,10 @@
           <button id="open-services" class="settings-link" type="button"><span><strong>Data services</strong><small>Optional API credentials</small></span><span aria-hidden="true">›</span></button>
         </aside>
 
-        <section id="postcode-keyboard" class="postcode-keyboard" aria-label="On-screen keyboard" hidden>
-          <div class="keyboard-row keyboard-numbers">
-            <button type="button" data-key="1">1</button><button type="button" data-key="2">2</button><button type="button" data-key="3">3</button><button type="button" data-key="4">4</button><button type="button" data-key="5">5</button><button type="button" data-key="6">6</button><button type="button" data-key="7">7</button><button type="button" data-key="8">8</button><button type="button" data-key="9">9</button><button type="button" data-key="0">0</button>
-          </div>
-          <div class="keyboard-row keyboard-top">
-            <button type="button" data-key="q">q</button><button type="button" data-key="w">w</button><button type="button" data-key="e">e</button><button type="button" data-key="r">r</button><button type="button" data-key="t">t</button><button type="button" data-key="y">y</button><button type="button" data-key="u">u</button><button type="button" data-key="i">i</button><button type="button" data-key="o">o</button><button type="button" data-key="p">p</button>
-          </div>
-          <div class="keyboard-row keyboard-middle">
-            <button type="button" data-key="a">a</button><button type="button" data-key="s">s</button><button type="button" data-key="d">d</button><button type="button" data-key="f">f</button><button type="button" data-key="g">g</button><button type="button" data-key="h">h</button><button type="button" data-key="j">j</button><button type="button" data-key="k">k</button><button type="button" data-key="l">l</button>
-          </div>
-          <div class="keyboard-row keyboard-bottom">
-            <button type="button" data-action="shift" class="keyboard-mod" aria-label="Shift">Shift</button><button type="button" data-action="symbols" class="keyboard-mod">#+=</button><button type="button" data-key="z">z</button><button type="button" data-key="x">x</button><button type="button" data-key="c">c</button><button type="button" data-key="v">v</button><button type="button" data-key="b">b</button><button type="button" data-key="n">n</button><button type="button" data-key="m">m</button><button type="button" data-action="space">Space</button><button type="button" data-action="backspace" aria-label="Delete last character">⌫</button><button type="button" data-action="submit" class="keyboard-set">Set</button>
-          </div>
-        </section>
+        <!-- Two on-screen keyboards, built by app.js from layout data:
+             a large-key postcode pad and a full desktop-style keyboard. -->
+        <section id="postcode-keyboard" class="osk osk-postcode" aria-label="Postcode keyboard" hidden></section>
+        <section id="text-keyboard" class="osk osk-text" aria-label="Keyboard" hidden></section>
 
         <aside id="wifi" class="wifi" hidden>
           <div class="panel-heading">
@@ -83,7 +73,7 @@
           <form id="wifi-form" class="wifi-form" hidden>
             <strong id="wifi-selected"></strong>
             <label id="wifi-password-label" for="wifi-password">Password</label>
-            <input id="wifi-password" name="password" type="password" inputmode="none" autocomplete="new-password" maxlength="256" spellcheck="false">
+            <input id="wifi-password" data-osk name="password" type="password" inputmode="none" autocomplete="new-password" maxlength="256" spellcheck="false">
             <div class="wifi-actions"><button id="cancel-wifi" type="button">Cancel</button><button id="connect-wifi" type="submit">Connect</button></div>
           </form>
         </aside>

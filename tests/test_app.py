@@ -113,9 +113,18 @@ class AppTests(unittest.TestCase):
         self.assertIn('id="wifi-password"', body)
         self.assertIn('id="airport-detail"', body)
         self.assertIn('id="location-postcode"', body)
+        # Two keyboards: a postcode pad and a full keyboard for everything else.
         self.assertIn('id="postcode-keyboard"', body)
-        self.assertIn('data-action="backspace"', body)
-        self.assertIn('data-action="submit"', body)
+        self.assertIn('id="text-keyboard"', body)
+        self.assertIn('id="location-postcode" data-osk="postcode"', body)
+        self.assertIn('id="wifi-password" data-osk', body)
+        # The keys themselves are built in app.js from layout data.
+        with urlopen(self.base_url + "/app.js", timeout=2) as response:
+            script = response.read().decode("utf-8")
+        self.assertIn('action: "backspace"', script)
+        self.assertIn('action: "submit"', script)
+        self.assertIn('action: "caps"', script)
+        self.assertIn('action: "shift"', script)
 
     def test_kiosk_controls_are_touch_optimised_and_hide_the_cursor(self) -> None:
         with urlopen(self.base_url + "/styles.css", timeout=2) as response:

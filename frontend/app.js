@@ -13,9 +13,8 @@ const state = {
   selectedAirport: null,
   selectedNetwork: null,
   keyboardTarget: null,
-  keyboardSymbols: false,
-  keyboardShift: "off",
-  keyboardSymbolPage: 0,
+  keyboardShift: false,
+  keyboardCaps: false,
   latest: [],
   preferences: {
     mapStyle: "colour",
@@ -52,6 +51,7 @@ const elements = {
   locationStatus: document.querySelector("#location-status"),
   saveLocation: document.querySelector("#save-location"),
   postcodeKeyboard: document.querySelector("#postcode-keyboard"),
+  textKeyboard: document.querySelector("#text-keyboard"),
   wifiStatus: document.querySelector("#wifi-status"),
   wifiNetworks: document.querySelector("#wifi-networks"),
   wifiForm: document.querySelector("#wifi-form"),
@@ -854,90 +854,104 @@ elements.locationForm.addEventListener("submit", (event) => {
   event.preventDefault();
   saveTravelLocation();
 });
-elements.locationPostcode.addEventListener("focus", () => openKeyboard(elements.locationPostcode));
-elements.locationPostcode.addEventListener("click", () => openKeyboard(elements.locationPostcode));
-elements.wifiPassword.addEventListener("focus", () => openKeyboard(elements.wifiPassword));
-elements.wifiPassword.addEventListener("click", () => openKeyboard(elements.wifiPassword));
-// Service credential fields (API keys, tokens, client secrets) use the same keyboard.
-document.querySelectorAll("input[data-osk]").forEach((input) => {
-  input.addEventListener("focus", () => openKeyboard(input));
-  input.addEventListener("click", () => openKeyboard(input));
-});
-
 // ---------------------------------------------------------------------------
-// On-screen keyboard
+// On-screen keyboards
 //
-// The 26 letter keys are reused for three layers:
-//   letters  : lower case by default; Shift gives one capital, a double tap
-//              on Shift locks caps (shown as "CAPS"), a third tap releases it.
-//   symbols 1: the common punctuation used in passwords and API keys.
-//   symbols 2: brackets and the rarer characters.
-// Between them the layers cover every printable ASCII character, which is
-// exactly what a WPA passphrase allows, so any Wi-Fi password can be typed.
-// The number row is always visible.
+// Every typeable field carries a data-osk attribute saying which keyboard it
+// wants:
+//   data-osk="postcode" : a large-key pad with capitals, digits, space,
+//                         delete and Set. Nothing else, because a UK postcode
+//                         needs nothing else.
+//   data-osk            : a full desktop-style (US ASCII) keyboard with Caps
+//                         Lock, both Shift keys and every printable ASCII
+//                         character, which is exactly the set a WPA Wi-Fi
+//                         passphrase or an API key can contain.
+//
+// Layouts are plain data, so changing a key means editing the arrays below.
+// A key is either a single character string (width 1) or an object:
+//   { char, w }                 character key with a custom width
+//   { action, label, w, cls }   function key (backspace, shift, caps, ...)
+//   { spacer: true, w }         empty gap, used for the row stagger
+// Widths are relative within a row; each row fills the keyboard width.
 // ---------------------------------------------------------------------------
-const keyboardLetterKeys = Array.from(elements.postcodeKeyboard.querySelectorAll(
-  ".keyboard-top [data-key], .keyboard-middle [data-key], .keyboard-bottom [data-key]",
-));
-keyboardLetterKeys.forEach((button) => { button.dataset.letter = button.dataset.key.toLowerCase(); });
-const keyboardShiftKey = elements.postcodeKeyboard.querySelector('[data-action="shift"]');
-const keyboardSymbolsKey = elements.postcodeKeyboard.querySelector('[data-action="symbols"]');
-const keyboardSubmitKey = elements.postcodeKeyboard.querySelector('[data-action="submit"]');
+const OSK_SHIFTED = {
+  "`": "~", "1": "!", "2": "@", "3": "#", "4": "$", "5": "%", "6": "^", "7": "&",
+  "8": "*", "9": "(", "0": ")", "-": "_", "=": "+", "[": "{", "]": "}", "\\": "|",
+  ";": ":", "'": '"', ",": "<", ".": ">", "/": "?",
+};
 
-// 26 characters per page, in key order: top row (10), middle (9), bottom (7).
-const keyboardSymbolPages = [
-  ["!", "@", "#", "$", "%", "^", "&", "*", "(", ")",
-   "-", "_", "=", "+", ";", ":", "'", '"', "/",
-   ".", ",", "?", "<", ">", "\\", "|"],
-  ["[", "]", "{", "}", "~", "`", "<", ">", "\\", "|",
-   "-", "_", "=", "+", ";", ":", "'", '"', "/",
-   ".", ",", "?", "!", "@", "#", "&"],
-];
-const SHIFT_DOUBLE_TAP_MS = 400;
-let lastShiftTap = 0;
+const OSK_LAYOUTS = {
+  postcode: [
+    [..."1234567890"],
+    [..."QWERTYUIOP"],
+    [..."ASDFGHJKL", { action: "backspace", label: "⌫", aria: "Delete last character" }],
+    [..."ZXCVBNM", { action: "space", label: "Space", w: 1.5 }, { action: "submit", label: "Set", w: 1.5, cls: "keyboard-set" }],
+  ],
+  text: [
+    [..."`1234567890-=", { action: "backspace", label: "⌫", w: 2, aria: "Delete last character" }],
+    [{ spacer: true, w: 1.5 }, ..."qwertyuiop[]", { char: "\\", w: 1.5 }],
+    [{ action: "caps", label: "Caps", w: 1.75, cls: "keyboard-mod" }, ..."asdfghjkl;'", { action: "submit", label: "Enter", w: 2.25, cls: "keyboard-set" }],
+    [{ action: "shift", label: "Shift", w: 2.25, cls: "keyboard-mod" }, ..."zxcvbnm,./", { action: "shift", label: "Shift", w: 2.75, cls: "keyboard-mod" }],
+    [{ action: "clear", label: "Clear", w: 2.5, cls: "keyboard-mod" }, { action: "space", label: "Space", w: 10 }, { action: "hide", label: "Hide", w: 2.5, cls: "keyboard-mod" }],
+  ],
+};
 
-// Repaint key labels and modifier state to match the current layer.
-function renderKeyboard() {
-  const symbols = state.keyboardSymbols;
-  const upper = state.keyboardShift !== "off";
-  keyboardLetterKeys.forEach((button, index) => {
-    const key = symbols
-      ? keyboardSymbolPages[state.keyboardSymbolPage][index]
-      : (upper ? button.dataset.letter.toUpperCase() : button.dataset.letter);
-    button.dataset.key = key;
-    button.textContent = key;
+// Build a keyboard's buttons from its layout.
+function buildKeyboard(section, layout) {
+  layout.forEach((row) => {
+    const rowEl = document.createElement("div");
+    rowEl.className = "keyboard-row";
+    const specs = row.map((key) => (typeof key === "string" ? { char: key } : key));
+    rowEl.style.gridTemplateColumns = specs.map((spec) => `${spec.w || 1}fr`).join(" ");
+    specs.forEach((spec) => {
+      if (spec.spacer) { rowEl.append(document.createElement("span")); return; }
+      const button = document.createElement("button");
+      button.type = "button";
+      if (spec.cls) button.className = spec.cls;
+      if (spec.aria) button.setAttribute("aria-label", spec.aria);
+      if (spec.action) {
+        button.dataset.action = spec.action;
+        button.textContent = spec.label;
+      } else {
+        button.dataset.char = spec.char;
+        // Show the shifted symbol in the corner, as on a real keycap.
+        if (OSK_SHIFTED[spec.char]) button.dataset.alt = OSK_SHIFTED[spec.char];
+      }
+      rowEl.append(button);
+    });
+    section.append(rowEl);
   });
-  keyboardSymbolsKey.textContent = symbols ? "abc" : "#+=";
-  if (symbols) {
-    // In symbol mode the Shift key flips between the two symbol pages.
-    keyboardShiftKey.textContent = `${state.keyboardSymbolPage + 1}/2`;
-    keyboardShiftKey.dataset.state = "off";
-    keyboardShiftKey.setAttribute("aria-label", "Next symbol page");
-  } else {
-    keyboardShiftKey.textContent = state.keyboardShift === "lock" ? "CAPS" : "Shift";
-    keyboardShiftKey.dataset.state = state.keyboardShift;
-    keyboardShiftKey.setAttribute("aria-label", state.keyboardShift === "lock" ? "Caps lock on" : "Shift");
-  }
 }
 
-function setKeyboardSymbols(enabled) {
-  state.keyboardSymbols = enabled;
-  state.keyboardSymbolPage = 0;
-  renderKeyboard();
+buildKeyboard(elements.postcodeKeyboard, OSK_LAYOUTS.postcode);
+buildKeyboard(elements.textKeyboard, OSK_LAYOUTS.text);
+const oskKeyboards = [elements.postcodeKeyboard, elements.textKeyboard];
+
+// The character a key types right now, given Shift and Caps Lock.
+// Like a real keyboard, Caps Lock affects letters only.
+function oskCharFor(button) {
+  const base = button.dataset.char;
+  if (/^[a-z]$/.test(base)) return state.keyboardShift !== state.keyboardCaps ? base.toUpperCase() : base;
+  return state.keyboardShift && OSK_SHIFTED[base] ? OSK_SHIFTED[base] : base;
 }
 
-function pressShift() {
-  if (state.keyboardSymbols) {
-    state.keyboardSymbolPage = (state.keyboardSymbolPage + 1) % keyboardSymbolPages.length;
-  } else {
-    const now = Date.now();
-    if (state.keyboardShift === "lock") state.keyboardShift = "off";
-    else if (state.keyboardShift === "once" && now - lastShiftTap < SHIFT_DOUBLE_TAP_MS) state.keyboardShift = "lock";
-    else state.keyboardShift = state.keyboardShift === "once" ? "off" : "once";
-    lastShiftTap = now;
-  }
-  renderKeyboard();
+// Repaint the full keyboard's labels and modifier highlights.
+function renderTextKeyboard() {
+  elements.textKeyboard.querySelectorAll("[data-char]").forEach((button) => {
+    button.textContent = oskCharFor(button);
+    // When Shift is down the main label already shows the shifted symbol.
+    button.classList.toggle("show-alt", !state.keyboardShift && Boolean(button.dataset.alt));
+  });
+  elements.textKeyboard.querySelectorAll('[data-action="shift"]').forEach((button) => {
+    button.setAttribute("aria-pressed", String(state.keyboardShift));
+  });
+  elements.textKeyboard.querySelector('[data-action="caps"]').setAttribute("aria-pressed", String(state.keyboardCaps));
 }
+
+// Postcode keys never change, so label them once.
+elements.postcodeKeyboard.querySelectorAll("[data-char]").forEach((button) => {
+  button.textContent = button.dataset.char;
+});
 
 // Inputs without a maxlength attribute report -1, which must mean "no limit".
 function keyboardRoom(target) {
@@ -945,25 +959,26 @@ function keyboardRoom(target) {
 }
 
 function openKeyboard(target) {
-  // Tapping the field that is already being typed into keeps the current
-  // shift/symbol state; only a new field resets the layout.
-  if (state.keyboardTarget === target && !elements.postcodeKeyboard.hidden) return;
+  const keyboard = target.dataset.osk === "postcode" ? elements.postcodeKeyboard : elements.textKeyboard;
+  // Tapping the field already being typed into keeps Shift/Caps as they are.
+  if (state.keyboardTarget === target && !keyboard.hidden) return;
   state.keyboardTarget = target;
-  state.keyboardSymbols = false;
-  state.keyboardSymbolPage = 0;
-  state.keyboardShift = target.dataset.oskCase === "upper" ? "lock" : "off";
-  keyboardSubmitKey.textContent = target === elements.wifiPassword ? "Connect"
-    : target.closest(".service-card") ? "Save" : "Set";
-  renderKeyboard();
-  elements.postcodeKeyboard.hidden = false;
-  // Shrink tall panels so the field being typed into is not hidden behind the keyboard.
-  document.body.style.setProperty("--osk-height", `${elements.postcodeKeyboard.offsetHeight + 16}px`);
+  state.keyboardShift = false;
+  state.keyboardCaps = false;
+  oskKeyboards.forEach((section) => { section.hidden = section !== keyboard; });
+  if (keyboard === elements.textKeyboard) {
+    keyboard.querySelector('[data-action="submit"]').textContent =
+      target === elements.wifiPassword ? "Connect" : target.closest(".service-card") ? "Save" : "Enter";
+    renderTextKeyboard();
+  }
+  // Shrink tall panels so the field being typed into stays above the keyboard.
+  document.body.style.setProperty("--osk-height", `${keyboard.offsetHeight + 16}px`);
   document.body.classList.add("osk-open");
   target.scrollIntoView({ block: "nearest" });
 }
 
 function closeKeyboard() {
-  elements.postcodeKeyboard.hidden = true;
+  oskKeyboards.forEach((section) => { section.hidden = true; });
   state.keyboardTarget = null;
   document.body.classList.remove("osk-open");
 }
@@ -982,32 +997,45 @@ function submitKeyboardTarget(target) {
   }
 }
 
-// pointerdown + preventDefault stops the key stealing focus from the input,
-// so the caret stays put and the field does not lose its keyboard.
-elements.postcodeKeyboard.addEventListener("pointerdown", (event) => {
-  if (event.target.closest("button")) event.preventDefault();
-});
-
-elements.postcodeKeyboard.addEventListener("click", (event) => {
-  const button = event.target.closest("button");
+function handleKeyboardPress(button) {
   const target = state.keyboardTarget;
-  if (!button || !target) return;
+  if (!target) return;
   switch (button.dataset.action) {
-    case "shift": pressShift(); return;
-    case "symbols": setKeyboardSymbols(!state.keyboardSymbols); return;
+    case "shift": state.keyboardShift = !state.keyboardShift; renderTextKeyboard(); return;
+    case "caps": state.keyboardCaps = !state.keyboardCaps; renderTextKeyboard(); return;
     case "space": if (keyboardRoom(target)) target.value += " "; return;
     case "backspace": target.value = target.value.slice(0, -1); return;
+    case "clear": target.value = ""; return;
+    case "hide": target.blur(); closeKeyboard(); return;
     case "submit": submitKeyboardTarget(target); return;
     default: break;
   }
-  if (button.dataset.key && keyboardRoom(target)) {
-    target.value += button.dataset.key;
-    // A single Shift only applies to the next letter.
-    if (!state.keyboardSymbols && state.keyboardShift === "once") {
-      state.keyboardShift = "off";
-      renderKeyboard();
-    }
+  if (!button.dataset.char || !keyboardRoom(target)) return;
+  const onTextKeyboard = button.closest("#text-keyboard") !== null;
+  target.value += onTextKeyboard ? oskCharFor(button) : button.dataset.char;
+  // Shift applies to one character, then lets go, as on a real keyboard.
+  if (onTextKeyboard && state.keyboardShift) {
+    state.keyboardShift = false;
+    renderTextKeyboard();
   }
+}
+
+oskKeyboards.forEach((section) => {
+  // pointerdown + preventDefault stops a key stealing focus from the input,
+  // so the field keeps its caret while typing.
+  section.addEventListener("pointerdown", (event) => {
+    if (event.target.closest("button")) event.preventDefault();
+  });
+  section.addEventListener("click", (event) => {
+    const button = event.target.closest("button");
+    if (button) handleKeyboardPress(button);
+  });
+});
+
+// Any field marked data-osk opens the keyboard it asks for.
+document.querySelectorAll("input[data-osk]").forEach((input) => {
+  input.addEventListener("focus", () => openKeyboard(input));
+  input.addEventListener("click", () => openKeyboard(input));
 });
 
 function preventKioskNavigation(event) {
