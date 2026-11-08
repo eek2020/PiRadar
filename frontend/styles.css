@@ -249,10 +249,13 @@ body.osk-open .services, body.osk-open .wifi, body.osk-open .options { max-heigh
 
 /* Software update panel */
 .updates { width: 340px; padding: 14px 16px 16px; }
-.update-facts { display: grid; gap: 6px; margin: 8px 0 4px; }
-.update-facts div { display: flex; justify-content: space-between; gap: 12px; padding: 7px 10px; border: 1px solid rgba(125,255,213,.14); border-radius: 7px; background: rgba(255,255,255,.02); }
-.update-facts dt { color: var(--muted); font-size: 9px; letter-spacing: .06em; text-transform: uppercase; }
-.update-facts dd { margin: 0; overflow: hidden; color: var(--text); font: 11px ui-monospace, monospace; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
+/* minmax(0, 1fr) stops one long value stretching every row off the screen */
+.update-facts { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; margin: 8px 0 4px; }
+.update-facts div { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; min-width: 0; padding: 7px 10px; border: 1px solid rgba(125,255,213,.14); border-radius: 7px; background: rgba(255,255,255,.02); }
+.update-facts dt { flex: none; color: var(--muted); font-size: 9px; letter-spacing: .06em; text-transform: uppercase; }
+.update-facts dd { flex: 1 1 auto; min-width: 0; margin: 0; overflow: hidden; color: var(--text); font: 11px ui-monospace, monospace; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
+/* The latest update's description wraps (up to two lines) so it can be read in full. */
+.update-facts #update-latest { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; white-space: normal; line-height: 1.35; overflow-wrap: anywhere; }
 .update-actions { display: flex; justify-content: flex-end; gap: 8px; margin: 6px 0 4px; }
 .update-actions button { min-width: 110px; min-height: 44px; border: 1px solid rgba(125,255,213,.2); border-radius: 6px; background: transparent; color: var(--muted); font-size: 12px; }
 .update-actions .primary { border-color: rgba(125,255,213,.42); background: rgba(125,255,213,.16); color: var(--mint); font-weight: 700; }

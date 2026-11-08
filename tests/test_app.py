@@ -155,6 +155,13 @@ class AppTests(unittest.TestCase):
         self.assertIn('action: "caps"', script)
         self.assertIn('action: "shift"', script)
 
+    def test_update_panel_values_cannot_push_rows_off_screen(self) -> None:
+        # Regression: a long commit message once widened every row past 800px.
+        with urlopen(self.base_url + "/styles.css", timeout=2) as response:
+            body = response.read().decode("utf-8")
+        self.assertIn("grid-template-columns: minmax(0, 1fr)", body)
+        self.assertIn(".update-facts dd { flex: 1 1 auto; min-width: 0;", body)
+
     def test_kiosk_controls_are_touch_optimised_and_hide_the_cursor(self) -> None:
         with urlopen(self.base_url + "/styles.css", timeout=2) as response:
             body = response.read().decode("utf-8")
