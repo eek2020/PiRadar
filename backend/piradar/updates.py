@@ -26,6 +26,8 @@ from typing import Any, Callable
 from urllib.parse import quote
 from urllib.request import Request, urlopen
 
+from piradar import __version__
+
 
 class UpdateError(RuntimeError):
     """A safe, user-facing update error."""
@@ -92,6 +94,8 @@ class UpdateManager:
         version = _read_json(self.install_dir / "VERSION.json")
         sha = version.get("sha") if isinstance(version.get("sha"), str) else ""
         return {
+            # The running code's own version number, e.g. "0.2.0".
+            "version": __version__,
             "ref": version.get("ref") or None,
             "sha": sha or None,
             "short": sha[:7] or None,

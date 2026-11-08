@@ -71,6 +71,8 @@ class UpdateManagerTests(unittest.TestCase):
         status = self.manager.status()
         self.assertEqual(status["channel"], "main")
         self.assertEqual(status["installed"]["short"], "aaaaaaa")
+        from piradar import __version__
+        self.assertEqual(status["installed"]["version"], __version__)
         self.assertIsNone(status["available"])
         self.assertEqual(self.github.urls, [])
 

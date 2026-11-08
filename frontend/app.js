@@ -1212,9 +1212,9 @@ function formatUpdateDate(value) {
 
 function renderUpdate(update) {
   const installed = update.installed || {};
-  elements.updateInstalled.textContent = installed.short
-    ? `${installed.short}${installed.installed_at ? ` · ${formatUpdateDate(installed.installed_at)}` : ""}`
-    : "Unknown (installed by hand)";
+  // e.g. "0.2.0 · 65e8976 · 8 Nov 2026"
+  const parts = [installed.version, installed.short || "installed by hand", formatUpdateDate(installed.installed_at)];
+  elements.updateInstalled.textContent = parts.filter(Boolean).join(" · ");
   elements.updateChannel.textContent = update.channel || "main";
   if (update.latest) {
     if (update.available) {
