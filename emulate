@@ -1,0 +1,21 @@
+#!/bin/sh
+# ---------------------------------------------------------------------------
+# Run PiRadar on an emulated Pi and router, to rehearse changes before they
+# are pushed to a real Pi. See emulator/run.py and docs/EMULATOR.md.
+#
+#   ./emulate                         # your neighbour's symptom (default)
+#   ./emulate --scenario wpa3-mixed   # any scenario from ./emulate --list
+#
+# PiRadar needs Python 3.11 or newer. macOS's built-in python3 is often older,
+# so look for a newer one first (Homebrew and python.org install these names).
+# ---------------------------------------------------------------------------
+here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+for candidate in python3.13 python3.12 python3.11 python3; do
+  if command -v "$candidate" >/dev/null 2>&1 \
+    && "$candidate" -c 'import sys; sys.exit(sys.version_info < (3, 11))' 2>/dev/null; then
+    exec "$candidate" "$here/emulator/run.py" "$@"
+  fi
+done
+echo "PiRadar needs Python 3.11 or newer." >&2
+echo "Install it from https://www.python.org/downloads/ or with: brew install python" >&2
+exit 1

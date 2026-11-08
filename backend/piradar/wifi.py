@@ -64,6 +64,7 @@ class NetworkManagerWifi:
             "model": "/proc/device-tree/model",
             "running_cmdline": "/proc/cmdline",
             "boot_cmdline": ["/boot/firmware/cmdline.txt", "/boot/cmdline.txt"],
+            "kernel": "/proc/sys/kernel/osrelease",
         }
         self._visible: dict[str, dict[str, Any]] = {}
 
@@ -160,7 +161,8 @@ class NetworkManagerWifi:
         """
         lines: list[str] = []
         model = self._read_text(self.paths["model"]).replace("\x00", "").strip() or "unknown board"
-        lines.append(f"Board: {model} · kernel {os.uname().release}")
+        kernel = self._read_text(self.paths.get("kernel", "")).strip() or os.uname().release
+        lines.append(f"Board: {model} · kernel {kernel}")
 
         option = "brcmfmac.feature_disable=0x82000"
         running = self._read_text(self.paths["running_cmdline"]).split()

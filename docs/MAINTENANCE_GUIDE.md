@@ -4,6 +4,10 @@
 
 Inspect application logs with `journalctl -u piradar`. Configuration lives in `/etc/piradar`; persistent enrichment and optional API credentials live in `/var/lib/piradar`. Both locations sit outside the checkout so source upgrades do not replace local settings. Never copy `credentials.json` into the repository or attach it to diagnostics.
 
+## Rehearsing a change first
+
+Before pushing, run `./emulate` to try the change on an emulated Pi and router in your browser. See [EMULATOR.md](EMULATOR.md).
+
 ## Updating over the air
 
 PiRadar updates itself from GitHub. Nothing needs to be connected to it.
