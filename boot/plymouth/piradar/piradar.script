@@ -1,0 +1,69 @@
+// ---------------------------------------------------------------------------
+// PiRadar Plymouth splash
+//
+// Shows a radar scope with a rotating sweep, the PiRadar wordmark and a
+// status line that depends on what the Pi is doing (starting, restarting,
+// shutting down). All artwork is pre-rendered by scripts/build-splash.py, so
+// this script only places images and swaps sweep frames.
+// ---------------------------------------------------------------------------
+
+// Background matches the app's theme colour #071014.
+Window.SetBackgroundTopColor(0.02745, 0.06275, 0.07843);
+Window.SetBackgroundBottomColor(0.02745, 0.06275, 0.07843);
+
+screen_width = Window.GetWidth();
+screen_height = Window.GetHeight();
+
+// --- Load the 36 sweep frames (10 degrees apart) ---------------------------
+frame_count = 36;
+for (i = 0; i < frame_count; i++) {
+    if (i < 10) {
+        frames[i] = Image("sweep-0" + i + ".png");
+    } else {
+        frames[i] = Image("sweep-" + i + ".png");
+    }
+}
+
+// --- Pick the status line for the current mode -----------------------------
+mode = Plymouth.GetMode();
+if (mode == "shutdown") {
+    status_image = Image("status-shutdown.png");
+} else if (mode == "reboot") {
+    status_image = Image("status-reboot.png");
+} else if (mode == "updates" || mode == "system-upgrade" || mode == "firmware-upgrade") {
+    status_image = Image("status-updates.png");
+} else {
+    status_image = Image("status-boot.png");
+}
+wordmark_image = Image("wordmark.png");
+
+// --- Layout: scope, wordmark and status stacked and centred ----------------
+gap_after_scope = 20;
+gap_after_wordmark = 12;
+block_height = frames[0].GetHeight() + gap_after_scope
+             + wordmark_image.GetHeight() + gap_after_wordmark
+             + status_image.GetHeight();
+top = Math.Int((screen_height - block_height) / 2);
+
+sweep = Sprite(frames[0]);
+sweep.SetX(Math.Int((screen_width - frames[0].GetWidth()) / 2));
+sweep.SetY(top);
+
+wordmark = Sprite(wordmark_image);
+wordmark.SetX(Math.Int((screen_width - wordmark_image.GetWidth()) / 2));
+wordmark.SetY(top + frames[0].GetHeight() + gap_after_scope);
+
+status = Sprite(status_image);
+status.SetX(Math.Int((screen_width - status_image.GetWidth()) / 2));
+status.SetY(wordmark.GetY() + wordmark_image.GetHeight() + gap_after_wordmark);
+
+// --- Animation --------------------------------------------------------------
+// Plymouth calls this about 50 times a second. Advancing one frame every
+// four calls gives one calm revolution roughly every three seconds.
+ticks = 0;
+fun refresh_callback() {
+    ticks++;
+    index = Math.Int(ticks / 4) % frame_count;
+    sweep.SetImage(frames[index]);
+}
+Plymouth.SetRefreshFunction(refresh_callback);

@@ -21,4 +21,5 @@ All notable changes will be documented here. The project follows [Semantic Versi
 - Separate on-screen keyboards: a large-key postcode pad and a full UK keyboard with Shift and Caps Lock for passwords and API keys
 - Show/hide toggle on every password field
 - Safe Shut down and Restart under Map options → Power
+- Optional PiRadar boot, restart and shutdown splash (`scripts/install-splash.sh`)
 - Over-the-air updater (`scripts/update.sh`) with pre-install tests, health check and automatic rollback
