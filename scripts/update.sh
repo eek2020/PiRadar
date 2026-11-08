@@ -142,6 +142,36 @@ restore_backup() {
   restart_services
 }
 
+# Does the Pi need a restart for a PiRadar boot setting to take effect?
+# Compare only the boot options PiRadar manages: the firmware adds and
+# rewrites others, so the whole line never matches exactly.
+restart_needed() {
+  boot_line=/boot/firmware/cmdline.txt
+  [ -f "$boot_line" ] || boot_line=/boot/cmdline.txt
+  [ -f "$boot_line" ] || return 1
+  on_disk=" $(head -n 1 "$boot_line" | tr -d '\r\n') "
+  running=" $(cat /proc/cmdline 2>/dev/null) "
+  for managed in brcmfmac.feature_disable=0x82000 logo.nologo vt.global_cursor_default=0; do
+    case "$on_disk" in *" $managed "*)
+      case "$running" in *" $managed "*) ;; *) return 0 ;; esac ;;
+    esac
+  done
+  return 1
+}
+
+# Restart the Pi to finish, unless it has already restarted for this
+# version (so a setting that never takes effect cannot cause a restart loop).
+# $1 is the message to show. Returns 1 if no restart was started.
+restart_pi_once() {
+  [ "$(cat "$reboot_marker" 2>/dev/null)" != "$sha" ] || return 1
+  install -d -m 0755 "$status_dir"
+  printf '%s\n' "$sha" >"$reboot_marker"
+  quiet=0
+  write_status success "$1"
+  echo "$1."
+  systemctl reboot --no-block
+}
+
 # Stop with a message on screen and in the status file.
 fail() {
   echo "$1" >&2
@@ -196,6 +226,11 @@ sha=$(json_value "$work/commit.json" sha)
 
 installed_sha=$(json_value "$install_dir/VERSION.json" sha)
 if [ "$mode" != manual ] && [ "$sha" = "$installed_sha" ]; then
+  # An earlier install may still be waiting for a restart, for example one
+  # done by an older updater that could not restart the Pi. Finish it now.
+  if restart_needed && restart_pi_once "Updated to $(printf '%.7s' "$sha"). Restarting the Pi to finish"; then
+    exit 0
+  fi
   write_status up_to_date "Already up to date"
   echo "Already up to date ($(printf '%.7s' "$sha"))."
   exit 0
@@ -271,32 +306,11 @@ PY
         || echo "Warning: the boot splash could not be refreshed. Run install-splash.sh by hand." >&2
     fi
     # Some changes (such as Wi-Fi compatibility mode) only apply after the Pi
-    # restarts. Compare only the boot options PiRadar manages: the firmware
-    # adds and rewrites others, so the whole line never matches exactly.
+    # restarts. Button and automatic runs restart it themselves; a run by
+    # hand over SSH leaves the restart to the person running it.
     finished="Updated to $(printf '%.7s' "$sha")"
-    needs_restart=0
-    boot_line=/boot/firmware/cmdline.txt
-    [ -f "$boot_line" ] || boot_line=/boot/cmdline.txt
-    if [ -f "$boot_line" ]; then
-      on_disk=" $(head -n 1 "$boot_line" | tr -d '\r\n') "
-      running=" $(cat /proc/cmdline 2>/dev/null) "
-      for managed in brcmfmac.feature_disable=0x82000 logo.nologo vt.global_cursor_default=0; do
-        case "$on_disk" in *" $managed "*)
-          case "$running" in *" $managed "*) ;; *)
-            needs_restart=1
-            break ;;
-          esac ;;
-        esac
-      done
-    fi
-    if [ "$needs_restart" = 1 ]; then
-      if [ "$mode" != manual ] && [ "$(cat "$reboot_marker" 2>/dev/null)" != "$sha" ]; then
-        # Nobody needs to be at the Pi: restart it now to finish. The marker
-        # makes sure this happens only once for this version.
-        printf '%s\n' "$sha" >"$reboot_marker"
-        write_status success "$finished. Restarting the Pi to finish"
-        echo "Update complete: $(cat "$install_dir/VERSION"). Restarting the Pi to finish."
-        systemctl reboot --no-block
+    if restart_needed; then
+      if [ "$mode" != manual ] && restart_pi_once "$finished. Restarting the Pi to finish"; then
         exit 0
       fi
       finished="$finished. Restart PiRadar to finish: Map options, Power, Restart"

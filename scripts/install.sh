@@ -38,10 +38,11 @@ install -m 0644 "$source_dir/polkit/50-piradar-power.rules" /etc/polkit-1/rules.
 install -m 0644 "$source_dir/polkit/50-piradar-update.rules" /etc/polkit-1/rules.d/50-piradar-update.rules
 udevadm control --reload-rules
 systemctl daemon-reload
-# The nightly timer is always on; it only acts when automatic updates are
-# switched on in the touchscreen settings.
+# The update timer is always on; it installs new versions unless automatic
+# updates are switched off in the touchscreen settings.
 systemctl enable piradar-update.timer >/dev/null 2>&1 || true
-systemctl start piradar-update.timer >/dev/null 2>&1 || true
+# restart (not start) so a changed schedule takes effect immediately
+systemctl restart piradar-update.timer >/dev/null 2>&1 || true
 
 if ! command -v nmcli >/dev/null 2>&1; then
   echo "Warning: nmcli is not installed; the in-app Wi-Fi picker will be unavailable." >&2
