@@ -1,0 +1,13 @@
+# Nightly check for PiRadar updates. A random delay spreads the load, and
+# Persistent= catches up after a night the Pi was switched off.
+[Unit]
+Description=Nightly PiRadar update check
+
+[Timer]
+OnCalendar=*-*-* 03:30
+RandomizedDelaySec=45min
+Persistent=true
+Unit=piradar-update-auto.service
+
+[Install]
+WantedBy=timers.target

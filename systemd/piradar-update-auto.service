@@ -1,0 +1,11 @@
+# Run nightly by piradar-update.timer. Does nothing unless automatic updates
+# are switched on under Map options -> Software update.
+[Unit]
+Description=PiRadar automatic software update
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh /opt/piradar/scripts/update.sh --auto
+TimeoutStartSec=20min

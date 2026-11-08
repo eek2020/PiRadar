@@ -6,17 +6,23 @@ Inspect application logs with `journalctl -u piradar`. Configuration lives in `/
 
 ## Updating over the air
 
-`scripts/update.sh` updates a running Pi from GitHub. It downloads the requested branch, tag or commit, runs the test suite against the download, backs up `/opt/piradar` to `/opt/piradar.previous`, runs the installer and restarts the service. If `/api/health` does not answer within about 20 seconds, or the installer fails, it restores the backup automatically. Settings in `/etc/piradar` and `/var/lib/piradar` are never touched.
+PiRadar updates itself from GitHub. Nothing needs to be connected to it.
 
-From another machine on the same network:
+- **Map options → Software update** shows the installed commit and the channel it follows, checks GitHub for the newest commit, and offers **Install update** when there is a genuinely newer version.
+- **Update automatically** (off by default) lets `piradar-update.timer` install new versions overnight, around 03:30.
+
+Every update, however it starts, runs `scripts/update.sh` as root under systemd. It resolves the channel to an exact commit, downloads it and runs the test suite before changing anything. Then it backs up `/opt/piradar` to `/opt/piradar.previous`, installs, restarts and checks `/api/health`. If the install or the health check fails, it restores the backup automatically. Automatic and touchscreen updates never move to an older commit: if the channel is behind what is installed, they do nothing.
+
+The app itself never gets root. It can only start `piradar-update.service`, which `polkit/50-piradar-update.rules` allows for the `piradar` user and nothing else, and it can write the automatic-update switch to `/var/lib/piradar/update-settings.json`. Progress is reported in `/var/lib/piradar-update/status.json` and the installed version in `/opt/piradar/VERSION.json`.
+
+**Channels.** The Pi follows the branch or tag it was last updated to by hand, stored in `/etc/piradar/update-channel` (default `main`). To change it, or to deliberately go back to an older version, run the updater by hand once:
 
 ```bash
-ssh -t pi@planeradar.local sudo /opt/piradar/scripts/update.sh            # latest main
-ssh -t pi@planeradar.local sudo /opt/piradar/scripts/update.sh v0.2.0     # a tag
-ssh -t pi@planeradar.local sudo /opt/piradar/scripts/update.sh --rollback # undo the last update
+ssh -t pi@planeradar.local sudo /opt/piradar/scripts/update.sh main        # follow main from now on
+ssh -t pi@planeradar.local sudo /opt/piradar/scripts/update.sh --rollback  # undo the last update
 ```
 
-Prefer tagged releases for anything you are not actively testing. `/opt/piradar/VERSION` records what was installed and when.
+Settings in `/etc/piradar` and `/var/lib/piradar` are never touched by updates.
 
 ## Power
 

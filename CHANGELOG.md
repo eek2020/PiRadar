@@ -22,4 +22,4 @@ All notable changes will be documented here. The project follows [Semantic Versi
 - Show/hide toggle on every password field
 - Safe Shut down and Restart under Map options → Power
 - Optional PiRadar boot, restart and shutdown splash (`scripts/install-splash.sh`)
-- Over-the-air updater (`scripts/update.sh`) with pre-install tests, health check and automatic rollback
+- Over-the-air updates: Software update panel (check, install, optional overnight updates) driving `scripts/update.sh`, with exact-commit installs, pre-install tests, health check, automatic rollback and no downgrades

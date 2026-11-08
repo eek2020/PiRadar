@@ -53,6 +53,14 @@ const elements = {
   postcodeKeyboard: document.querySelector("#postcode-keyboard"),
   textKeyboard: document.querySelector("#text-keyboard"),
   power: document.querySelector("#power"),
+  updates: document.querySelector("#updates"),
+  updateInstalled: document.querySelector("#update-installed"),
+  updateChannel: document.querySelector("#update-channel"),
+  updateLatest: document.querySelector("#update-latest"),
+  updateMessage: document.querySelector("#update-message"),
+  updateCheck: document.querySelector("#update-check"),
+  updateInstall: document.querySelector("#update-install"),
+  updateAuto: document.querySelector("#update-auto"),
   powerChoices: document.querySelector("#power-choices"),
   powerConfirm: document.querySelector("#power-confirm"),
   powerQuestion: document.querySelector("#power-question"),
@@ -553,6 +561,7 @@ function applyPreferences() {
 
 function openOptions() {
   closePower();
+  closeUpdates();
   clearSelection();
   closeAirportDetail();
   closeFilters();
@@ -570,6 +579,7 @@ function closeOptions() {
 
 function openFilters() {
   closePower();
+  closeUpdates();
   clearSelection();
   closeAirportDetail();
   closeOptions();
@@ -586,6 +596,7 @@ function closeFilters() {
 
 function openServices() {
   closePower();
+  closeUpdates();
   clearSelection();
   closeAirportDetail();
   closeOptions();
@@ -603,6 +614,7 @@ function closeServices() {
 
 function openWifi() {
   closePower();
+  closeUpdates();
   clearSelection();
   closeAirportDetail();
   closeOptions();
@@ -1108,6 +1120,7 @@ const POWER_TEXT = {
 let pendingPowerAction = null;
 
 function openPower() {
+  closeUpdates();
   clearSelection();
   closeAirportDetail();
   closeOptions();
@@ -1176,6 +1189,170 @@ elements.powerChoices.addEventListener("click", (event) => {
 document.querySelector("#power-cancel").addEventListener("click", resetPowerPanel);
 elements.powerGo.addEventListener("click", runPowerAction);
 
+// ---------------------------------------------------------------------------
+// Software update (over the air)
+//
+// The panel shows what is installed and asks the backend to check GitHub.
+// "Install update" starts the Pi's own updater, which tests, backs up,
+// installs and health-checks by itself, rolling back on failure. While it
+// runs the screen shows a full-screen notice that follows its progress; the
+// kiosk restarts at the end and loads the new version.
+// ---------------------------------------------------------------------------
+const UPDATE_FINISHED = { success: true, rolled_back: true, failed: true, up_to_date: true, interrupted: true };
+let updatePollTimer = null;
+let updateRequestedAt = 0;
+
+function formatUpdateDate(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "" : date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
+
+function renderUpdate(update) {
+  const installed = update.installed || {};
+  elements.updateInstalled.textContent = installed.short
+    ? `${installed.short}${installed.installed_at ? ` · ${formatUpdateDate(installed.installed_at)}` : ""}`
+    : "Unknown (installed by hand)";
+  elements.updateChannel.textContent = update.channel || "main";
+  if (update.latest) {
+    if (update.available) {
+      elements.updateLatest.textContent = `${update.latest.short} · ${update.latest.summary || "New version"}`;
+    } else if (update.latest.direction === "behind") {
+      // The channel is older than what is installed; never offer a downgrade.
+      elements.updateLatest.textContent = `Installed is newer than ${update.channel}`;
+    } else {
+      elements.updateLatest.textContent = "You're up to date";
+    }
+  }
+  elements.updateInstall.disabled = !update.available || update.progress.running;
+  elements.updateAuto.checked = Boolean(update.auto);
+}
+
+function showUpdateMessage(text, isError = false) {
+  elements.updateMessage.dataset.state = isError ? "error" : "";
+  elements.updateMessage.textContent = text || "";
+}
+
+async function updateRequest(body) {
+  const response = await fetch("/api/system/update", {
+    method: body ? "POST" : "GET",
+    cache: "no-store",
+    headers: body ? { "Content-Type": "application/json" } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const payload = await response.json();
+  if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+  return payload.update;
+}
+
+async function checkForUpdates(force = false) {
+  elements.updateCheck.disabled = true;
+  showUpdateMessage("Checking GitHub…");
+  try {
+    const update = await updateRequest({ action: "check", force });
+    renderUpdate(update);
+    showUpdateMessage(update.available ? "A new version is ready to install." : "");
+  } catch (error) {
+    showUpdateMessage(error.message, true);
+  } finally {
+    elements.updateCheck.disabled = false;
+  }
+}
+
+function openUpdates() {
+  closePower();
+  clearSelection();
+  closeAirportDetail();
+  closeOptions();
+  closeFilters();
+  closeWifi();
+  closeServices();
+  elements.updates.hidden = false;
+  showUpdateMessage("");
+  updateRequest().then(renderUpdate).catch(() => {});
+  checkForUpdates(false);
+}
+
+function closeUpdates() {
+  elements.updates.hidden = true;
+}
+
+function showUpdateOverlay(detail) {
+  elements.powerOverlayTitle.textContent = "Updating PiRadar…";
+  elements.powerOverlayText.textContent = detail || "Tests run first. The screen restarts when the new version is ready.";
+  elements.powerOverlay.hidden = false;
+}
+
+// Follow the updater until it finishes. Connection errors are expected while
+// the backend restarts, so they simply keep the notice up.
+function pollUpdate() {
+  window.clearTimeout(updatePollTimer);
+  updatePollTimer = window.setTimeout(async () => {
+    try {
+      const update = await updateRequest();
+      const progress = update.progress;
+      const fresh = progress.at && Date.parse(progress.at) >= updateRequestedAt - 5000;
+      if (progress.running || !fresh) {
+        if (progress.running) showUpdateOverlay(`${progress.message || "Working"}…`);
+        // Give up waiting for the updater to start after two minutes.
+        if (!progress.running && Date.now() - updateRequestedAt > 120000) throw new Error("The update did not start.");
+        pollUpdate();
+        return;
+      }
+      elements.powerOverlay.hidden = true;
+      renderUpdate(update);
+      const failed = progress.state === "failed" || progress.state === "rolled_back";
+      showUpdateMessage(progress.message, failed);
+    } catch (error) {
+      if (error instanceof TypeError) { pollUpdate(); return; }
+      elements.powerOverlay.hidden = true;
+      showUpdateMessage(error.message, true);
+    }
+  }, 3000);
+}
+
+async function installUpdate() {
+  elements.updateInstall.disabled = true;
+  updateRequestedAt = Date.now();
+  showUpdateOverlay();
+  try {
+    await updateRequest({ action: "install" });
+    pollUpdate();
+  } catch (error) {
+    elements.powerOverlay.hidden = true;
+    showUpdateMessage(error.message, true);
+    elements.updateInstall.disabled = false;
+  }
+}
+
+async function setAutoUpdate(enabled) {
+  try {
+    renderUpdate(await updateRequest({ action: "auto", enabled }));
+    showUpdateMessage(enabled ? "PiRadar will update itself overnight when a new version is available." : "Automatic updates are off.");
+  } catch (error) {
+    elements.updateAuto.checked = !enabled;
+    showUpdateMessage(error.message, true);
+  }
+}
+
+// If the screen loads while an update is already running (for example the
+// overnight one), show the notice and follow it.
+function resumeUpdateIfRunning() {
+  updateRequest().then((update) => {
+    if (update.progress.running) {
+      updateRequestedAt = Date.parse(update.progress.at) || Date.now();
+      showUpdateOverlay(`${update.progress.message || "Working"}…`);
+      pollUpdate();
+    }
+  }).catch(() => {});
+}
+
+document.querySelector("#open-updates").addEventListener("click", openUpdates);
+document.querySelector("#close-updates").addEventListener("click", closeUpdates);
+elements.updateCheck.addEventListener("click", () => checkForUpdates(true));
+elements.updateInstall.addEventListener("click", installUpdate);
+elements.updateAuto.addEventListener("change", () => setAutoUpdate(elements.updateAuto.checked));
+
 function preventKioskNavigation(event) {
   const link = event.target instanceof Element ? event.target.closest("a[href]") : null;
   if (!link) return;
@@ -1194,3 +1371,4 @@ window.setInterval(() => {
 }, 1000);
 
 start();
+resumeUpdateIfRunning();

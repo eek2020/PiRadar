@@ -76,13 +76,13 @@ button, label, input { touch-action: manipulation; }
 .filter-control:focus, .filter-control:hover { outline: 2px solid var(--mint); outline-offset: 2px; }
 .message { position: absolute; inset: 50% auto auto 50%; transform: translate(-50%, -50%); padding: 10px 14px; border: 1px solid var(--line); background: rgba(5,14,17,.9); color: var(--muted); font-size: 12px; letter-spacing: .05em; text-transform: uppercase; }
 .message[hidden] { display: none; }
-.detail, .airport-detail, .options, .filters, .services, .wifi, .power { position: absolute; z-index: 1100; top: 10px; right: 10px; border: 1px solid rgba(125,255,213,.35); border-radius: 12px; background: rgba(7,16,20,.96); box-shadow: 0 12px 36px rgba(0,0,0,.5); pointer-events: auto; touch-action: manipulation; }
+.detail, .airport-detail, .options, .filters, .services, .wifi, .power, .updates { position: absolute; z-index: 1100; top: 10px; right: 10px; border: 1px solid rgba(125,255,213,.35); border-radius: 12px; background: rgba(7,16,20,.96); box-shadow: 0 12px 36px rgba(0,0,0,.5); pointer-events: auto; touch-action: manipulation; }
 .detail { width: 350px; padding: 14px 16px 15px; }
 .airport-detail { width: 320px; padding: 14px 16px 16px; }
 .options, .filters { width: 290px; max-height: calc(100% - 20px); padding: 14px 16px 16px; overflow-y: auto; overscroll-behavior: contain; }
 .services { width: 430px; max-height: calc(100% - 20px); padding: 14px 16px 16px; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; }
 .wifi { width: 430px; max-height: calc(100% - 20px); padding: 14px 16px 16px; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; }
-.detail[hidden], .airport-detail[hidden], .options[hidden], .filters[hidden], .services[hidden], .wifi[hidden], .power[hidden] { display: none; }
+.detail[hidden], .airport-detail[hidden], .options[hidden], .filters[hidden], .services[hidden], .wifi[hidden], .power[hidden], .updates[hidden] { display: none; }
 .panel-heading { display: flex; align-items: flex-start; justify-content: space-between; min-height: 45px; gap: 12px; }
 .panel-heading .eyebrow { margin: 0; }
 .panel-heading h2 { margin: 3px 0 0; color: var(--mint); font: 23px ui-monospace, monospace; }
@@ -246,3 +246,14 @@ body.osk-open .services, body.osk-open .wifi, body.osk-open .options { max-heigh
 .power-overlay[hidden] { display: none; }
 .power-overlay strong { display: block; color: var(--mint); font-size: 20px; letter-spacing: .04em; }
 .power-overlay p { max-width: 420px; margin: 10px auto 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
+
+/* Software update panel */
+.updates { width: 340px; padding: 14px 16px 16px; }
+.update-facts { display: grid; gap: 6px; margin: 8px 0 4px; }
+.update-facts div { display: flex; justify-content: space-between; gap: 12px; padding: 7px 10px; border: 1px solid rgba(125,255,213,.14); border-radius: 7px; background: rgba(255,255,255,.02); }
+.update-facts dt { color: var(--muted); font-size: 9px; letter-spacing: .06em; text-transform: uppercase; }
+.update-facts dd { margin: 0; overflow: hidden; color: var(--text); font: 11px ui-monospace, monospace; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
+.update-actions { display: flex; justify-content: flex-end; gap: 8px; margin: 6px 0 4px; }
+.update-actions button { min-width: 110px; min-height: 44px; border: 1px solid rgba(125,255,213,.2); border-radius: 6px; background: transparent; color: var(--muted); font-size: 12px; }
+.update-actions .primary { border-color: rgba(125,255,213,.42); background: rgba(125,255,213,.16); color: var(--mint); font-weight: 700; }
+.update-actions button:disabled { opacity: .45; }

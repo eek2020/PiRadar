@@ -11,6 +11,7 @@ from urllib.request import Request, urlopen
 from piradar.app import create_server
 from piradar.config import Config
 from piradar.storage import CredentialsStore, LocationStore
+from piradar.updates import UpdateManager
 
 
 class FakePostcodeGeocoder:
@@ -61,6 +62,16 @@ class AppTests(unittest.TestCase):
         cls.location_store = LocationStore(Path(cls.temporary_directory.name) / "location.json")
         cls.wifi_manager = FakeWifiManager()
         cls.power = FakePower()
+        update_root = Path(cls.temporary_directory.name)
+        cls.update_commands: list[list[str]] = []
+        cls.updates = UpdateManager(
+            update_root / "state",
+            install_dir=update_root,
+            channel_file=update_root / "update-channel",
+            status_file=update_root / "update-status.json",
+            fetch=lambda url: {"status": "ahead"} if "/compare/" in url else {"sha": "c" * 40, "commit": {"message": "New build", "committer": {"date": "2026-11-08T13:00:00Z"}}},
+            runner=lambda command, **kwargs: cls.update_commands.append(command),
+        )
         cls.server = create_server(
             config,
             frontend_dir=frontend,
@@ -69,6 +80,7 @@ class AppTests(unittest.TestCase):
             postcode_geocoder=FakePostcodeGeocoder(),
             wifi_manager=cls.wifi_manager,
             power=cls.power,
+            updates=cls.updates,
         )
         cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
         cls.thread.start()
@@ -272,6 +284,33 @@ class AppTests(unittest.TestCase):
         self.assertIn('id="open-power"', body)
         self.assertIn('data-power="poweroff"', body)
         self.assertIn('data-power="reboot"', body)
+        self.assertIn('id="open-updates"', body)
+        self.assertIn('id="update-install"', body)
+
+
+    def test_update_api_reports_checks_installs_and_stores_auto(self) -> None:
+        status = self.get_json("/api/system/update")["update"]
+        self.assertEqual(status["channel"], "main")
+        self.assertIsNone(status["available"])
+
+        checked = self.post_json("/api/system/update", {"action": "check"})["update"]
+        self.assertTrue(checked["available"])
+        self.assertEqual(checked["latest"]["summary"], "New build")
+
+        self.post_json("/api/system/update", {"action": "install"})
+        self.assertEqual(self.update_commands[-1], ["systemctl", "start", "--no-block", "piradar-update.service"])
+
+        self.assertTrue(self.post_json("/api/system/update", {"action": "auto", "enabled": True})["update"]["auto"])
+
+        request = Request(
+            self.base_url + "/api/system/update",
+            data=json.dumps({"action": "uninstall"}).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with self.assertRaises(HTTPError) as raised:
+            urlopen(request, timeout=2)
+        self.assertEqual(raised.exception.code, 400)
 
 
 if __name__ == "__main__":
