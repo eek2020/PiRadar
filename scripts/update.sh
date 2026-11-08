@@ -191,7 +191,10 @@ if [ "$mode" != manual ] && [ -n "$installed_sha" ]; then
       exit 0
     fi
   else
-    fail "Could not compare versions with GitHub"
+    # GitHub reached a moment ago, so this means it does not know the
+    # installed commit (for example its branch was deleted). It cannot be
+    # shown to be newer, so carry on rather than blocking updates for ever.
+    echo "Installed commit is unknown to GitHub; updating anyway." >&2
   fi
 fi
 
@@ -244,7 +247,25 @@ PY
       sh "$install_dir/scripts/install-splash.sh" >/dev/null \
         || echo "Warning: the boot splash could not be refreshed. Run install-splash.sh by hand." >&2
     fi
-    write_status success "Updated to $(printf '%.7s' "$sha")"
+    # Some changes (such as Wi-Fi compatibility mode) only apply after the Pi
+    # restarts. Compare only the boot options PiRadar manages: the firmware
+    # adds and rewrites others, so the whole line never matches exactly.
+    finished="Updated to $(printf '%.7s' "$sha")"
+    boot_line=/boot/firmware/cmdline.txt
+    [ -f "$boot_line" ] || boot_line=/boot/cmdline.txt
+    if [ -f "$boot_line" ]; then
+      on_disk=" $(head -n 1 "$boot_line" | tr -d '\r\n') "
+      running=" $(cat /proc/cmdline 2>/dev/null) "
+      for managed in brcmfmac.feature_disable=0x82000 logo.nologo vt.global_cursor_default=0; do
+        case "$on_disk" in *" $managed "*)
+          case "$running" in *" $managed "*) ;; *)
+            finished="$finished. Restart PiRadar to finish: Map options, Power, Restart"
+            break ;;
+          esac ;;
+        esac
+      done
+    fi
+    write_status success "$finished"
     echo "Update complete: $(cat "$install_dir/VERSION")"
     exit 0
   fi

@@ -58,6 +58,45 @@ class BootLineTests(unittest.TestCase):
         self.assertEqual(self.cmdline(), "root=/dev/sda*\n")
 
 
+class WifiCompatAutoTests(unittest.TestCase):
+    """The installer's "auto" mode: on for Pi 3 / Zero 2, respects opt-out."""
+
+    def setUp(self) -> None:
+        self.temporary = tempfile.TemporaryDirectory()
+        self.root = Path(self.temporary.name)
+        (self.root / "cmdline.txt").write_text(CMDLINE + "\n")
+
+    def tearDown(self) -> None:
+        self.temporary.cleanup()
+
+    def run_compat(self, mode: str, model: str) -> None:
+        # Rewrite the opt-out path into the temp dir and skip the root check.
+        script = (ROOT / "scripts" / "wifi-compat.sh").read_text()
+        script = script.replace("opt_out=/etc/piradar/wifi-compat-off", f"opt_out={self.root}/wifi-compat-off")
+        script = script.replace('if [ "$(id -u)" -ne 0 ]; then', "if false; then")
+        script = script.replace('$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)/lib/bootline.sh', str(LIB))
+        environment = dict(os.environ, PIRADAR_BOOT_DIR=str(self.root), PIRADAR_BOARD_MODEL=model)
+        subprocess.run(["sh", "-c", script, "wifi-compat", mode], env=environment, check=True, capture_output=True)
+
+    def enabled(self) -> bool:
+        return "brcmfmac.feature_disable=0x82000" in (self.root / "cmdline.txt").read_text()
+
+    def test_auto_switches_on_for_affected_boards_only(self) -> None:
+        self.run_compat("auto", "Raspberry Pi 4 Model B Rev 1.4")
+        self.assertFalse(self.enabled())
+        self.run_compat("auto", "Raspberry Pi 3 Model B Rev 1.2")
+        self.assertTrue(self.enabled())
+
+    def test_off_is_remembered_by_later_updates(self) -> None:
+        self.run_compat("auto", "Raspberry Pi 3 Model B Rev 1.2")
+        self.run_compat("off", "Raspberry Pi 3 Model B Rev 1.2")
+        self.run_compat("auto", "Raspberry Pi 3 Model B Rev 1.2")
+        self.assertFalse(self.enabled())
+        self.run_compat("on", "Raspberry Pi 3 Model B Rev 1.2")
+        self.assertTrue(self.enabled())
+        self.assertFalse((self.root / "wifi-compat-off").exists())
+
+
 class WifiCompatScriptTests(unittest.TestCase):
     def test_script_uses_the_known_fix_and_shared_helpers(self) -> None:
         script = (ROOT / "scripts" / "wifi-compat.sh").read_text()

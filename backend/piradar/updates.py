@@ -210,8 +210,12 @@ class UpdateManager:
             payload = self._fetch(
                 f"https://api.github.com/repos/{quote(self.repo, safe='/')}/compare/{installed}...{latest_sha}"
             )
-        except Exception as error:
-            raise UpdateError("Could not compare versions with GitHub. Try again.") from error
+        except Exception:
+            # GitHub answered the commit lookup a moment ago, so a failure here
+            # means it does not know the installed commit (for example its
+            # branch was deleted). That cannot be shown to be newer, so offer
+            # the update rather than blocking updates for ever.
+            return "unknown-install"
         status = payload.get("status")
         if status not in {"ahead", "behind", "identical", "diverged"}:
             raise UpdateError("GitHub gave an unexpected comparison.")

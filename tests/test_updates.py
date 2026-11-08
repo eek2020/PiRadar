@@ -90,6 +90,14 @@ class UpdateManagerTests(unittest.TestCase):
         self.assertFalse(self.manager.check(force=True)["available"])
         self.assertEqual(len(self.github.urls), 3)
 
+    def test_installed_commit_unknown_to_github_does_not_block_updates(self) -> None:
+        def fetch(url: str) -> dict:
+            if "/compare/" in url:
+                raise OSError("404 Not Found")
+            return {"sha": NEW_SHA, "commit": {"message": "x", "committer": {}}}
+        self.manager._fetch = fetch
+        self.assertTrue(self.manager.check()["available"])
+
     def test_an_older_channel_is_never_offered(self) -> None:
         # e.g. following main before the feature branch has been merged
         self.github.direction = "behind"

@@ -15,14 +15,21 @@
 # Networks that are WPA3-only still will not work on this hardware; the
 # router needs WPA2 or WPA2/WPA3 mixed mode (or a WPA2 guest network).
 #
+# It is on by default for Pi 3 and Zero 2 boards: the installer (and so every
+# over-the-air update) runs "auto", which switches it on unless someone has
+# deliberately turned it off with "off". That choice is remembered.
+#
 # Usage:
 #   sudo /opt/piradar/scripts/wifi-compat.sh status
 #   sudo /opt/piradar/scripts/wifi-compat.sh on     # then restart the Pi
-#   sudo /opt/piradar/scripts/wifi-compat.sh off    # then restart the Pi
+#   sudo /opt/piradar/scripts/wifi-compat.sh off    # then restart; stays off
+#   sudo /opt/piradar/scripts/wifi-compat.sh auto   # installer default
 # ---------------------------------------------------------------------------
 set -eu
 
 option="brcmfmac.feature_disable=0x82000"
+# Present when someone has chosen to turn the mode off; "auto" respects it.
+opt_out=/etc/piradar/wifi-compat-off
 
 if [ "$(id -u)" -ne 0 ]; then
   echo "Run this with sudo." >&2
@@ -32,7 +39,19 @@ fi
 # Shared boot-file helpers (boot_dir, cmdline_add, cmdline_remove, ...).
 . "$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)/lib/bootline.sh"
 
+# Boards whose Broadcom Wi-Fi has the mixed-mode problem. PIRADAR_BOARD_MODEL
+# overrides the detected model, which the tests use.
+affected_board() {
+  model=${PIRADAR_BOARD_MODEL:-$(tr -d '\0' </proc/device-tree/model 2>/dev/null || true)}
+  case "$model" in
+    *"Raspberry Pi 3"*|*"Raspberry Pi Zero 2"*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 if [ ! -f "$cmdline" ]; then
+  # Not a Raspberry Pi boot layout: nothing to do when run by the installer.
+  [ "${1:-}" = auto ] && exit 0
   echo "Could not find cmdline.txt in $boot_dir." >&2
   exit 1
 fi
@@ -46,7 +65,15 @@ running_with_option() {
 }
 
 case "${1:-status}" in
+  auto)
+    # Quiet, for the installer: on for affected boards unless opted out.
+    if affected_board && [ ! -e "$opt_out" ] && ! cmdline_has "$option"; then
+      cmdline_add "$option" >/dev/null
+      echo "Wi-Fi compatibility mode switched on. Restart the Pi to finish."
+    fi
+    ;;
   on)
+    rm -f "$opt_out"
     if cmdline_has "$option"; then
       echo "Wi-Fi compatibility mode is already on."
     else
@@ -55,6 +82,9 @@ case "${1:-status}" in
     fi
     ;;
   off)
+    # Remember the choice so updates do not switch it back on.
+    install -d -m 0755 "$(dirname "$opt_out")"
+    : >"$opt_out"
     if cmdline_has "$option"; then
       cmdline_remove "$option"
       echo "Wi-Fi compatibility mode is off. Restart the Pi for it to take effect."
@@ -69,7 +99,7 @@ case "${1:-status}" in
     [ "$saved" = "$active" ] || echo "Restart the Pi to apply the change."
     ;;
   *)
-    echo "Usage: $0 on|off|status" >&2
+    echo "Usage: $0 on|off|status|auto" >&2
     exit 1
     ;;
 esac

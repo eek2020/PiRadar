@@ -34,7 +34,7 @@ When a connection fails, the Wi-Fi panel explains why under the password box and
 
 - **Network not in the list.** The Pi 3B only has 2.4GHz Wi-Fi. A router that broadcasts only on 5GHz will not appear; most routers can enable 2.4GHz, or offer a 2.4GHz guest network.
 - **"Wi-Fi passwords are 8 to 63 characters long".** The password typed cannot be valid. Use the eye button to check it.
-- **Right password, still refused, router shows "WPA2 WPA3".** This is a known problem with the Pi 3's Broadcom Wi-Fi and routers in WPA2/WPA3 mixed (transition) mode ([raspberrypi/linux#4976](https://github.com/raspberrypi/linux/issues/4976)). Turn on Wi-Fi compatibility mode, which makes the Pi join over WPA2, then restart:
+- **Right password, still refused, router shows "WPA2 WPA3".** This is a known problem with the Pi 3's Broadcom Wi-Fi and routers in WPA2/WPA3 mixed (transition) mode ([raspberrypi/linux#4976](https://github.com/raspberrypi/linux/issues/4976)). Wi-Fi compatibility mode, which makes the Pi join over WPA2, fixes it. It is **on by default** for Pi 3 and Zero 2 boards: every install and over-the-air update switches it on, and the update asks for a restart to finish. If someone turns it off, that choice is remembered and updates leave it off. To manage it by hand:
 
   ```bash
   sudo /opt/piradar/scripts/wifi-compat.sh on       # then restart the Pi
