@@ -122,6 +122,8 @@ class NetworkManagerWifi:
             raise WifiError("That network is no longer in the scan results. Scan again.")
         security = str(network.get("security", ""))
         self._check_password_shape(security, password)
+        if not network.get("connected"):
+            self._forget_saved_profiles(ssid)
 
         command = ["nmcli", "--ask", "--wait", "30", "device", "wifi", "connect", ssid]
         try:
@@ -131,6 +133,36 @@ class NetworkManagerWifi:
             LOG.warning("Wi-Fi connect to %r (%s) failed: %s", ssid, security or "open", error)
             raise WifiError(friendly, detail=str(error)[:200]) from None
         return {"ssid": ssid, "connected": True}
+
+    def _forget_saved_profiles(self, ssid: str) -> None:
+        """Delete saved NetworkManager profiles for this network first.
+
+        A failed attempt can leave a saved profile holding the wrong password.
+        NetworkManager then keeps trying that stale key and reports "Secrets
+        were required, but not provided" even when the new password is right.
+        Clearing it means every attempt uses exactly what was just typed. Only
+        profiles for this SSID are touched, and any problem here is logged and
+        skipped rather than blocking the connection attempt.
+        """
+        try:
+            listing = self._run(
+                ["nmcli", "--terse", "--escape", "yes", "--fields", "UUID,TYPE", "connection", "show"],
+                timeout=10,
+            )
+            for row in listing.stdout.splitlines():
+                fields = _split_terse_row(row)
+                if len(fields) != 2 or fields[1] not in {"802-11-wireless", "wifi"}:
+                    continue
+                uuid = fields[0]
+                saved = self._run(
+                    ["nmcli", "--escape", "no", "--get-values", "802-11-wireless.ssid", "connection", "show", uuid],
+                    timeout=10,
+                )
+                if saved.stdout.rstrip("\n") == ssid:
+                    self._run(["nmcli", "connection", "delete", uuid], timeout=15)
+                    LOG.info("Removed saved Wi-Fi profile %s for %r before reconnecting", uuid, ssid)
+        except WifiError as error:
+            LOG.warning("Could not clear saved Wi-Fi profiles for %r: %s", ssid, error)
 
     @staticmethod
     def _check_password_shape(security: str, password: str) -> None:

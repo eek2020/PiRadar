@@ -43,6 +43,7 @@ When a connection fails, the Wi-Fi panel explains why under the password box and
   ```
 
   A WPA3-only network will still not work on this hardware; switch the router to WPA2/WPA3 mixed mode or use a WPA2 guest network.
+- **"Secrets were required, but not provided".** The router rejected the key. Usually a mistyped password (check 0/O and 1/l/I with the eye button). PiRadar clears any saved profile for that network before each attempt, so an earlier wrong password cannot linger. If the right password still fails, try a phone hotspot: if that connects, the problem is specific to that router.
 - **"Did not give it an address".** PiRadar joined but the router refused it an IP address. Restart the router, or check MAC filtering or a device limit.
 
 ## Boot splash (optional)
