@@ -257,3 +257,7 @@ body.osk-open .services, body.osk-open .wifi, body.osk-open .options { max-heigh
 .update-actions button { min-width: 110px; min-height: 44px; border: 1px solid rgba(125,255,213,.2); border-radius: 6px; background: transparent; color: var(--muted); font-size: 12px; }
 .update-actions .primary { border-color: rgba(125,255,213,.42); background: rgba(125,255,213,.16); color: var(--mint); font-weight: 700; }
 .update-actions button:disabled { opacity: .45; }
+
+/* Version line at the foot of Map options */
+.app-version { margin: 12px 0 0; color: var(--muted); font: 9px ui-monospace, monospace; letter-spacing: .04em; text-align: center; }
+.app-version:empty { display: none; }

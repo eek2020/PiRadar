@@ -54,6 +54,7 @@ const elements = {
   textKeyboard: document.querySelector("#text-keyboard"),
   power: document.querySelector("#power"),
   updates: document.querySelector("#updates"),
+  appVersion: document.querySelector("#app-version"),
   updateInstalled: document.querySelector("#update-installed"),
   updateChannel: document.querySelector("#update-channel"),
   updateLatest: document.querySelector("#update-latest"),
@@ -569,6 +570,7 @@ function openOptions() {
   closeWifi();
   elements.options.hidden = false;
   elements.optionsControl.setAttribute("aria-expanded", "true");
+  showAppVersion();
 }
 
 function closeOptions() {
@@ -1352,6 +1354,21 @@ document.querySelector("#close-updates").addEventListener("click", closeUpdates)
 elements.updateCheck.addEventListener("click", () => checkForUpdates(true));
 elements.updateInstall.addEventListener("click", installUpdate);
 elements.updateAuto.addEventListener("change", () => setAutoUpdate(elements.updateAuto.checked));
+
+// Version line at the foot of Map options, e.g. "PiRadar 0.2.0 · 7643d15",
+// so it is easy to confirm which build an update installed.
+async function showAppVersion() {
+  try {
+    const [health, update] = await Promise.all([
+      fetch("/api/health", { cache: "no-store" }).then((response) => response.json()),
+      updateRequest(),
+    ]);
+    const build = update.installed && update.installed.short ? ` · ${update.installed.short}` : "";
+    elements.appVersion.textContent = `PiRadar ${health.version}${build}`;
+  } catch (error) {
+    elements.appVersion.textContent = "";
+  }
+}
 
 function preventKioskNavigation(event) {
   const link = event.target instanceof Element ? event.target.closest("a[href]") : null;
