@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import subprocess
+import tempfile
 import unittest
+from pathlib import Path
 
 from piradar.wifi import NetworkManagerWifi, WifiError, _split_terse_row
 
@@ -179,6 +181,47 @@ class WifiTests(unittest.TestCase):
         manager.scan()
         manager.connect("Home", "good password")
         self.assertIn("aaa-1", runner.profiles)
+
+
+    def test_diagnostics_show_router_flags_compat_state_and_log(self) -> None:
+        journal = "\n".join([
+            "Nov 08 20:31:00 planeradar systemd[1]: Started something unrelated.",
+            "Nov 08 20:31:02 planeradar NetworkManager[612]: <info>  device (wlan0): Activation: starting connection 'Home'",
+            "Nov 08 20:31:05 planeradar wpa_supplicant[540]: wlan0: WPA: 4-Way Handshake failed - pre-shared key may be incorrect",
+            "Nov 08 20:31:05 planeradar wpa_supplicant[540]: wlan0: CTRL-EVENT-SSID-TEMP-DISABLED id=0 ssid=\"Home\" auth_failures=1 reason=WRONG_KEY",
+        ])
+        listing = "Home:AA\\:BB\\:CC\\:DD\\:EE\\:FF:6:2437 MHz:71:WPA2:(none):pair_ccmp group_ccmp psk\nOther:11\\:22\\:33\\:44\\:55\\:66:1:2412 MHz:30:WPA2:(none):pair_ccmp group_ccmp psk\n"
+
+        def runner(command, **kwargs):
+            out = journal if command[0] == "journalctl" else listing
+            return subprocess.CompletedProcess(command, 0, stdout=out, stderr="")
+
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / "model").write_bytes(b"Raspberry Pi 3 Model B Rev 1.2\x00")
+            (root / "proc").write_text("coherent_pool=1M console=ttyS0,115200 quiet splash\n")
+            (root / "boot").write_text("console=serial0,115200 quiet splash brcmfmac.feature_disable=0x82000\n")
+            manager = NetworkManagerWifi(runner)
+            manager.paths = {"model": str(root / "model"), "running_cmdline": str(root / "proc"),
+                             "boot_cmdline": [str(root / "boot")]}
+            lines = manager.diagnostics("Home")["lines"]
+
+        text = "\n".join(lines)
+        self.assertIn("Raspberry Pi 3 Model B Rev 1.2", lines[0])
+        self.assertIn("saved on · active off", text)  # set, but waiting for a restart
+        self.assertIn("Router: Home AA:BB:CC:DD:EE:FF ch 6 2437 MHz 71% WPA2", text)
+        self.assertIn("RSN: pair_ccmp group_ccmp psk", text)
+        self.assertNotIn("Other", text)
+        self.assertIn("20:31:05 wpa_supplicant: wlan0: WPA: 4-Way Handshake failed", text)
+        self.assertNotIn("unrelated", text)
+
+    def test_diagnostics_survive_missing_tools(self) -> None:
+        def runner(command, **kwargs):
+            raise FileNotFoundError(command[0])
+        manager = NetworkManagerWifi(runner)
+        manager.paths = {"model": "/nonexistent", "running_cmdline": "/nonexistent", "boot_cmdline": ["/nonexistent"]}
+        lines = manager.diagnostics("Home")["lines"]
+        self.assertTrue(any("unavailable" in line for line in lines))
 
 
 if __name__ == "__main__":

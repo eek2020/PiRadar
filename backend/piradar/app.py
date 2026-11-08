@@ -9,7 +9,7 @@ import os
 from pathlib import Path
 import threading
 from typing import Any, Type
-from urllib.parse import unquote, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 from piradar import __version__
 from piradar.config import Config
@@ -128,6 +128,14 @@ def build_handler(
                 return
             if path == "/api/settings/services":
                 self._json({"services": credentials_store.summary()})
+                return
+            if path == "/api/settings/wifi/diagnostics":
+                # Shows log lines from the Pi, so only to its own screen.
+                if self.client_address[0] not in {"127.0.0.1", "::1"}:
+                    self._json({"error": "diagnostics are only available on the device"}, HTTPStatus.FORBIDDEN)
+                    return
+                ssid = (parse_qs(urlparse(self.path).query).get("ssid") or [None])[0]
+                self._json({"diagnostics": wifi_manager.diagnostics(ssid)})
                 return
             if path == "/api/settings/wifi":
                 try:

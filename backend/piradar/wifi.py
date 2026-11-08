@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import subprocess
 import threading
 from typing import Any, Callable
@@ -58,6 +59,12 @@ class NetworkManagerWifi:
     ) -> None:
         self._runner = runner
         self._lock = threading.RLock()
+        # Files read for diagnostics; tests point these at temporary copies.
+        self.paths = {
+            "model": "/proc/device-tree/model",
+            "running_cmdline": "/proc/cmdline",
+            "boot_cmdline": ["/boot/firmware/cmdline.txt", "/boot/cmdline.txt"],
+        }
         self._visible: dict[str, dict[str, Any]] = {}
 
     def scan(self) -> list[dict[str, Any]]:
@@ -133,6 +140,91 @@ class NetworkManagerWifi:
             LOG.warning("Wi-Fi connect to %r (%s) failed: %s", ssid, security or "open", error)
             raise WifiError(friendly, detail=str(error)[:200]) from None
         return {"ssid": ssid, "connected": True}
+
+    # --- Diagnostics -----------------------------------------------------
+    # Log lines worth showing: NetworkManager, wpa_supplicant and the
+    # Broadcom driver talking about Wi-Fi association and keys.
+    _LOG_PATTERN = re.compile(
+        r"wlan0|wi-?fi|802-11|supplicant|brcmf|4-?way|handshake|wrong_key|assoc|auth|sae|pmf|"
+        r"secrets|disconnect|ctrl-event|reason|key ?mgmt|psk",
+        re.IGNORECASE,
+    )
+
+    def diagnostics(self, ssid: str | None = None) -> dict[str, Any]:
+        """Everything needed to diagnose a failed connection from one photo.
+
+        The board and kernel, whether Wi-Fi compatibility mode is saved and
+        active, what the router advertises (security flags, channel, signal)
+        and the last Wi-Fi log lines from NetworkManager, wpa_supplicant and
+        the driver. NetworkManager and wpa_supplicant never log passwords.
+        """
+        lines: list[str] = []
+        model = self._read_text(self.paths["model"]).replace("\x00", "").strip() or "unknown board"
+        lines.append(f"Board: {model} · kernel {os.uname().release}")
+
+        option = "brcmfmac.feature_disable=0x82000"
+        running = self._read_text(self.paths["running_cmdline"]).split()
+        saved: list[str] = []
+        for path in self.paths["boot_cmdline"]:
+            text = self._read_text(path)
+            if text:
+                saved = text.split()
+                break
+        lines.append(
+            "Wi-Fi compatibility mode: "
+            f"saved {'on' if option in saved else 'off'} · active {'on' if option in running else 'off'}"
+        )
+
+        try:
+            listing = self._run(
+                ["nmcli", "--terse", "--escape", "yes", "--fields",
+                 "SSID,BSSID,CHAN,FREQ,SIGNAL,SECURITY,WPA-FLAGS,RSN-FLAGS", "device", "wifi", "list"],
+                timeout=15,
+            )
+            routers = []
+            for row in listing.stdout.splitlines():
+                fields = _split_terse_row(row)
+                if len(fields) != 8 or (ssid and fields[0] != ssid):
+                    continue
+                name, bssid, chan, freq, signal, security, wpa, rsn = fields
+                routers.append(
+                    f"Router: {name} {bssid} ch {chan} {freq} {signal}% {security or 'open'} | WPA: {wpa or '-'} | RSN: {rsn or '-'}"
+                )
+            lines.extend(routers[:4] or [f"Router: {ssid or 'network'} not in the current scan"])
+        except WifiError as error:
+            lines.append(f"Router: scan unavailable ({error})")
+
+        lines.append("Log (most recent last):")
+        lines.extend(self._recent_wifi_log())
+        return {"lines": lines}
+
+    def _recent_wifi_log(self, limit: int = 28) -> list[str]:
+        try:
+            result = self._run(
+                ["journalctl", "--no-pager", "--quiet", "-o", "short", "--since", "-15 min",
+                 "-u", "NetworkManager", "-u", "wpa_supplicant", "-k"],
+                timeout=15,
+            )
+        except WifiError as error:
+            return [f"  (log unavailable: {error})"]
+        kept = []
+        for raw in result.stdout.splitlines():
+            if not self._LOG_PATTERN.search(raw):
+                continue
+            # "Nov 08 20:31:02 planeradar NetworkManager[612]: <info> ..." ->
+            # "20:31:02 NetworkManager: <info> ..." to fit the screen.
+            match = re.match(r"^\w{3} +\d+ (\d\d:\d\d:\d\d) \S+ ([^:\[]+)(?:\[\d+\])?: (.*)$", raw)
+            line = f"{match.group(1)} {match.group(2)}: {match.group(3)}" if match else raw
+            kept.append("  " + line[:170])
+        return kept[-limit:] or ["  (no Wi-Fi log lines in the last 15 minutes)"]
+
+    @staticmethod
+    def _read_text(path: str) -> str:
+        try:
+            with open(path, "rb") as stream:
+                return stream.read(4096).decode("utf-8", "replace")
+        except OSError:
+            return ""
 
     def _forget_saved_profiles(self, ssid: str) -> None:
         """Delete saved NetworkManager profiles for this network first.

@@ -36,6 +36,9 @@ class FakeWifiManager:
             raise ValueError("network not scanned")
         return {"ssid": ssid, "connected": True}
 
+    def diagnostics(self, ssid: str | None = None) -> dict[str, object]:
+        return {"lines": [f"Router: {ssid}", "Log (most recent last):"]}
+
 
 class FakePower:
     """Records power requests instead of switching anything off."""
@@ -318,6 +321,11 @@ class AppTests(unittest.TestCase):
         with self.assertRaises(HTTPError) as raised:
             urlopen(request, timeout=2)
         self.assertEqual(raised.exception.code, 400)
+
+
+    def test_wifi_diagnostics_endpoint_passes_the_network_name(self) -> None:
+        result = self.get_json("/api/settings/wifi/diagnostics?ssid=Home%20Hub")
+        self.assertEqual(result["diagnostics"]["lines"][0], "Router: Home Hub")
 
 
 if __name__ == "__main__":

@@ -700,6 +700,29 @@ function selectWifiNetwork(network) {
   }
 }
 
+// Full-screen Wi-Fi diagnostics: board, compatibility mode, what the router
+// advertises and the Pi's own Wi-Fi log. Meant to be photographed and sent.
+async function showWifiDiagnostics() {
+  const panel = document.querySelector("#wifi-diagnostics");
+  const text = document.querySelector("#wifi-diagnostics-text");
+  text.textContent = "Collecting…";
+  panel.hidden = false;
+  try {
+    const ssid = state.selectedNetwork ? state.selectedNetwork.ssid : "";
+    const response = await fetch(`/api/settings/wifi/diagnostics?ssid=${encodeURIComponent(ssid)}`, { cache: "no-store" });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+    text.textContent = payload.diagnostics.lines.join("\n");
+  } catch (error) {
+    text.textContent = `Could not collect details: ${error.message}`;
+  }
+}
+
+document.querySelector("#wifi-details").addEventListener("click", showWifiDiagnostics);
+document.querySelector("#close-wifi-diagnostics").addEventListener("click", () => {
+  document.querySelector("#wifi-diagnostics").hidden = true;
+});
+
 // Error box inside the Wi-Fi form. Pass null to hide it.
 function showWifiError(message, detail = "") {
   elements.wifiError.hidden = !message;

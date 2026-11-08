@@ -13,6 +13,9 @@ config_dir=/etc/piradar
 if ! id piradar >/dev/null 2>&1; then
   useradd --system --home-dir "$install_dir" --shell /usr/sbin/nologin piradar
 fi
+# The service reads the Wi-Fi log through this standard group; make sure it
+# exists, or systemd would refuse to start the service.
+getent group systemd-journal >/dev/null || groupadd --system systemd-journal
 
 install -d -m 0755 "$install_dir"
 if [ "$source_dir" != "$install_dir" ]; then

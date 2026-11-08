@@ -22,6 +22,7 @@ All notable changes will be documented here. The project follows [Semantic Versi
 - Show/hide toggle on every password field
 - Safe Shut down and Restart under Map options → Power
 - Clear Wi-Fi failure messages (wrong-length password, WPA3 mixed mode, weak signal, no address) with NetworkManager's reason shown and logged
+- Wi-Fi Details screen: router security flags, compatibility mode state and the Pi's own Wi-Fi log, sized for one photo
 - Saved Wi-Fi profiles for a network are cleared before each attempt, so a stale wrong password cannot block a correct one
 - Wi-Fi compatibility mode for WPA2/WPA3 mixed-mode routers, on by default for Pi 3 / Zero 2 boards and delivered over the air (`scripts/wifi-compat.sh`)
 - Version and build shown at the foot of Map options

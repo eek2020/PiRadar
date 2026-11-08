@@ -30,7 +30,7 @@ Map options → Power offers Shut down and Restart, each behind a confirm step. 
 
 ## Wi-Fi troubleshooting
 
-When a connection fails, the Wi-Fi panel explains why under the password box and shows NetworkManager's own reason in small print. The same reason is written to the journal (`journalctl -u piradar | grep Wi-Fi`).
+When a connection fails, the Wi-Fi panel explains why under the password box and shows NetworkManager's own reason in small print. The same reason is written to the journal (`journalctl -u piradar | grep Wi-Fi`). **Details** opens a full-screen report sized for one phone photo: board and kernel, whether Wi-Fi compatibility mode is saved and active, what the router advertises (BSSID, channel, signal, WPA and RSN flags) and the last Wi-Fi lines from NetworkManager, wpa_supplicant and the driver. The service reads the log through the `systemd-journal` group; neither NetworkManager nor wpa_supplicant logs passwords.
 
 - **Network not in the list.** The Pi 3B only has 2.4GHz Wi-Fi. A router that broadcasts only on 5GHz will not appear; most routers can enable 2.4GHz, or offer a 2.4GHz guest network.
 - **"Wi-Fi passwords are 8 to 63 characters long".** The password typed cannot be valid. Use the eye button to check it.
