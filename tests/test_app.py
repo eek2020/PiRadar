@@ -36,6 +36,21 @@ class FakeWifiManager:
         return {"ssid": ssid, "connected": True}
 
 
+class FakePower:
+    """Records power requests instead of switching anything off."""
+
+    def __init__(self) -> None:
+        self.requests: list[str] = []
+
+    def request(self, action: str) -> dict[str, object]:
+        from piradar.power import PowerError
+
+        if action not in {"poweroff", "reboot"}:
+            raise PowerError("Choose shut down or restart.")
+        self.requests.append(action)
+        return {"action": action, "accepted": True}
+
+
 class AppTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -45,6 +60,7 @@ class AppTests(unittest.TestCase):
         credentials_store = CredentialsStore(Path(cls.temporary_directory.name) / "credentials.json")
         cls.location_store = LocationStore(Path(cls.temporary_directory.name) / "location.json")
         cls.wifi_manager = FakeWifiManager()
+        cls.power = FakePower()
         cls.server = create_server(
             config,
             frontend_dir=frontend,
@@ -52,6 +68,7 @@ class AppTests(unittest.TestCase):
             location_store=cls.location_store,
             postcode_geocoder=FakePostcodeGeocoder(),
             wifi_manager=cls.wifi_manager,
+            power=cls.power,
         )
         cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
         cls.thread.start()
@@ -230,6 +247,31 @@ class AppTests(unittest.TestCase):
 
         connected = self.post_json("/api/settings/wifi", {"ssid": "Guest", "password": ""})
         self.assertEqual(connected["connection"], {"ssid": "Guest", "connected": True})
+
+
+    def test_power_api_accepts_only_shutdown_and_restart(self) -> None:
+        result = self.post_json("/api/system/power", {"action": "poweroff"})
+        self.assertEqual(result["power"], {"action": "poweroff", "accepted": True})
+        self.assertEqual(self.power.requests[-1], "poweroff")
+
+        request = Request(
+            self.base_url + "/api/system/power",
+            data=json.dumps({"action": "halt; rm -rf /"}).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with self.assertRaises(HTTPError) as raised:
+            urlopen(request, timeout=2)
+        self.assertEqual(raised.exception.code, 400)
+        self.assertEqual(self.power.requests, ["poweroff"])
+
+    def test_frontend_has_password_reveal_and_power_controls(self) -> None:
+        with urlopen(self.base_url + "/", timeout=2) as response:
+            body = response.read().decode("utf-8")
+        self.assertEqual(body.count("data-reveal"), body.count('type="password"'))
+        self.assertIn('id="open-power"', body)
+        self.assertIn('data-power="poweroff"', body)
+        self.assertIn('data-power="reboot"', body)
 
 
 if __name__ == "__main__":

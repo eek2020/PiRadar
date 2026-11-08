@@ -52,6 +52,15 @@ const elements = {
   saveLocation: document.querySelector("#save-location"),
   postcodeKeyboard: document.querySelector("#postcode-keyboard"),
   textKeyboard: document.querySelector("#text-keyboard"),
+  power: document.querySelector("#power"),
+  powerChoices: document.querySelector("#power-choices"),
+  powerConfirm: document.querySelector("#power-confirm"),
+  powerQuestion: document.querySelector("#power-question"),
+  powerGo: document.querySelector("#power-go"),
+  powerMessage: document.querySelector("#power-message"),
+  powerOverlay: document.querySelector("#power-overlay"),
+  powerOverlayTitle: document.querySelector("#power-overlay-title"),
+  powerOverlayText: document.querySelector("#power-overlay-text"),
   wifiStatus: document.querySelector("#wifi-status"),
   wifiNetworks: document.querySelector("#wifi-networks"),
   wifiForm: document.querySelector("#wifi-form"),
@@ -543,6 +552,7 @@ function applyPreferences() {
 }
 
 function openOptions() {
+  closePower();
   clearSelection();
   closeAirportDetail();
   closeFilters();
@@ -559,6 +569,7 @@ function closeOptions() {
 }
 
 function openFilters() {
+  closePower();
   clearSelection();
   closeAirportDetail();
   closeOptions();
@@ -574,6 +585,7 @@ function closeFilters() {
 }
 
 function openServices() {
+  closePower();
   clearSelection();
   closeAirportDetail();
   closeOptions();
@@ -585,10 +597,12 @@ function openServices() {
 
 function closeServices() {
   elements.services.hidden = true;
+  maskPasswords(elements.services);
   closeKeyboard();
 }
 
 function openWifi() {
+  closePower();
   clearSelection();
   closeAirportDetail();
   closeOptions();
@@ -600,6 +614,7 @@ function openWifi() {
 
 function closeWifi() {
   elements.wifi.hidden = true;
+  maskPasswords(elements.wifi);
   elements.wifiForm.hidden = true;
   state.selectedNetwork = null;
   if (state.keyboardTarget === elements.wifiPassword) {
@@ -656,8 +671,9 @@ function selectWifiNetwork(network) {
   state.selectedNetwork = network;
   elements.wifiSelected.textContent = network.ssid;
   elements.wifiPassword.value = "";
+  maskPasswords(elements.wifi);
   elements.wifiPasswordLabel.hidden = !network.secured;
-  elements.wifiPassword.hidden = !network.secured;
+  elements.wifiPassword.closest(".password-field").hidden = !network.secured;
   elements.wifiForm.hidden = false;
   if (network.secured) {
     openKeyboard(elements.wifiPassword);
@@ -1039,6 +1055,126 @@ document.querySelectorAll("input[data-osk]").forEach((input) => {
   input.addEventListener("focus", () => openKeyboard(input));
   input.addEventListener("click", () => openKeyboard(input));
 });
+
+// ---------------------------------------------------------------------------
+// Show / hide password
+//
+// Every password box sits in a .password-field with an eye button. Tapping
+// the eye switches the input between masked and plain text. maskPasswords()
+// puts them all back to masked, and is called whenever a panel closes or a
+// new Wi-Fi network is picked.
+// ---------------------------------------------------------------------------
+function setPasswordVisible(toggle, visible) {
+  const input = toggle.closest(".password-field").querySelector("input");
+  input.type = visible ? "text" : "password";
+  toggle.setAttribute("aria-pressed", String(visible));
+  toggle.setAttribute("aria-label", visible ? "Hide password" : "Show password");
+}
+
+function maskPasswords(scope = document) {
+  scope.querySelectorAll("[data-reveal]").forEach((toggle) => setPasswordVisible(toggle, false));
+}
+
+document.querySelectorAll("[data-reveal]").forEach((toggle) => {
+  // Keep focus (and the on-screen keyboard) on the input while toggling.
+  toggle.addEventListener("pointerdown", (event) => event.preventDefault());
+  toggle.addEventListener("click", (event) => {
+    event.preventDefault();
+    setPasswordVisible(toggle, toggle.getAttribute("aria-pressed") !== "true");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Power: safe shut down and restart
+//
+// Two taps are always needed: pick an action, then confirm it. On confirm the
+// screen switches to a full-screen notice straight away, because the backend
+// may be stopped by the shutdown before its reply arrives.
+// ---------------------------------------------------------------------------
+const POWER_TEXT = {
+  poweroff: {
+    question: "Shut down PiRadar?",
+    button: "Shut down",
+    title: "Shutting down…",
+    detail: "Wait until the green light on the Pi stops flashing, then it is safe to unplug.",
+  },
+  reboot: {
+    question: "Restart PiRadar?",
+    button: "Restart",
+    title: "Restarting…",
+    detail: "The radar will be back in about a minute.",
+  },
+};
+let pendingPowerAction = null;
+
+function openPower() {
+  clearSelection();
+  closeAirportDetail();
+  closeOptions();
+  closeFilters();
+  closeWifi();
+  closeServices();
+  resetPowerPanel();
+  elements.power.hidden = false;
+}
+
+function closePower() {
+  elements.power.hidden = true;
+  resetPowerPanel();
+}
+
+function resetPowerPanel() {
+  pendingPowerAction = null;
+  elements.powerChoices.hidden = false;
+  elements.powerConfirm.hidden = true;
+  elements.powerMessage.textContent = "";
+  elements.powerMessage.dataset.state = "";
+}
+
+function askPowerConfirm(action) {
+  pendingPowerAction = action;
+  elements.powerQuestion.textContent = POWER_TEXT[action].question;
+  elements.powerGo.textContent = POWER_TEXT[action].button;
+  elements.powerChoices.hidden = true;
+  elements.powerConfirm.hidden = false;
+}
+
+async function runPowerAction() {
+  const action = pendingPowerAction;
+  if (!action) return;
+  const text = POWER_TEXT[action];
+  elements.powerOverlayTitle.textContent = text.title;
+  elements.powerOverlayText.textContent = text.detail;
+  elements.powerOverlay.hidden = false;
+  try {
+    const response = await fetch("/api/system/power", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action }),
+    });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+  } catch (error) {
+    // A dropped connection means the shutdown has already started, so keep
+    // the notice up. Only a real error reply from the Pi undoes it.
+    if (!(error instanceof TypeError)) {
+      elements.powerOverlay.hidden = true;
+      elements.powerMessage.dataset.state = "error";
+      elements.powerMessage.textContent = error.message || "The Pi refused the request.";
+      elements.powerChoices.hidden = false;
+      elements.powerConfirm.hidden = true;
+    }
+  }
+}
+
+document.querySelector("#open-power").addEventListener("click", openPower);
+document.querySelector("#close-power").addEventListener("click", closePower);
+elements.powerChoices.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-power]");
+  if (button) askPowerConfirm(button.dataset.power);
+});
+document.querySelector("#power-cancel").addEventListener("click", resetPowerPanel);
+elements.powerGo.addEventListener("click", runPowerAction);
 
 function preventKioskNavigation(event) {
   const link = event.target instanceof Element ? event.target.closest("a[href]") : null;

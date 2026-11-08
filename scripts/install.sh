@@ -18,7 +18,7 @@ install -d -m 0755 "$install_dir"
 if [ "$source_dir" != "$install_dir" ]; then
   cp -R "$source_dir/backend" "$source_dir/frontend" "$source_dir/scripts" "$install_dir/"
 fi
-chmod 0755 "$install_dir/scripts/run-dev.sh" "$install_dir/scripts/start-kiosk.sh"
+chmod 0755 "$install_dir/scripts/run-dev.sh" "$install_dir/scripts/start-kiosk.sh" "$install_dir/scripts/update.sh"
 install -d -m 0755 "$config_dir"
 if [ ! -e "$config_dir/piradar.json" ]; then
   install -m 0644 "$source_dir/config/piradar.example.json" "$config_dir/piradar.json"
@@ -28,6 +28,7 @@ install -m 0644 "$source_dir/systemd/cage@.service" /etc/systemd/system/cage@.se
 install -m 0644 "$source_dir/udev/99-piradar-input.rules" /etc/udev/rules.d/99-piradar-input.rules
 install -d -m 0755 /etc/polkit-1/rules.d
 install -m 0644 "$source_dir/polkit/50-piradar-network.rules" /etc/polkit-1/rules.d/50-piradar-network.rules
+install -m 0644 "$source_dir/polkit/50-piradar-power.rules" /etc/polkit-1/rules.d/50-piradar-power.rules
 udevadm control --reload-rules
 systemctl daemon-reload
 

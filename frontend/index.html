@@ -56,6 +56,24 @@
           <label class="switch-row" for="show-labels"><span><strong>Callsign labels</strong><small>Show names beside aircraft</small></span><input id="show-labels" type="checkbox"><i></i></label>
           <button id="open-wifi" class="settings-link" type="button"><span><strong>Wi-Fi network</strong><small>Select from nearby networks</small></span><span aria-hidden="true">›</span></button>
           <button id="open-services" class="settings-link" type="button"><span><strong>Data services</strong><small>Optional API credentials</small></span><span aria-hidden="true">›</span></button>
+          <button id="open-power" class="settings-link" type="button"><span><strong>Power</strong><small>Shut down or restart safely</small></span><span aria-hidden="true">›</span></button>
+        </aside>
+
+        <!-- Power panel: choose an action, then confirm it. -->
+        <aside id="power" class="power" hidden>
+          <div class="panel-heading">
+            <div><p class="eyebrow">Settings</p><h2>Power</h2></div>
+            <button id="close-power" class="panel-close" type="button" aria-label="Close power options">×</button>
+          </div>
+          <div id="power-choices" class="power-choices">
+            <button type="button" data-power="poweroff"><strong>Shut down</strong><small>Turn PiRadar off before unplugging</small></button>
+            <button type="button" data-power="reboot"><strong>Restart</strong><small>Reboot the Pi</small></button>
+          </div>
+          <div id="power-confirm" class="power-confirm" hidden>
+            <p id="power-question"></p>
+            <div class="power-actions"><button id="power-cancel" type="button">Cancel</button><button id="power-go" type="button" class="danger"></button></div>
+          </div>
+          <p id="power-message" class="service-message" aria-live="polite"></p>
         </aside>
 
         <!-- Two on-screen keyboards, built by app.js from layout data:
@@ -73,7 +91,7 @@
           <form id="wifi-form" class="wifi-form" hidden>
             <strong id="wifi-selected"></strong>
             <label id="wifi-password-label" for="wifi-password">Password</label>
-            <input id="wifi-password" data-osk name="password" type="password" inputmode="none" autocomplete="new-password" maxlength="256" spellcheck="false">
+            <span class="password-field"><input id="wifi-password" data-osk name="password" type="password" inputmode="none" autocomplete="new-password" maxlength="256" spellcheck="false"><button type="button" class="reveal-toggle" data-reveal aria-label="Show password" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="eye" d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle class="eye" cx="12" cy="12" r="3"/><path class="slash" d="M4 4l16 16"/></svg></button></span>
             <div class="wifi-actions"><button id="cancel-wifi" type="button">Cancel</button><button id="connect-wifi" type="submit">Connect</button></div>
           </form>
         </aside>
@@ -87,21 +105,21 @@
 
           <section class="service-card" data-service="flightaware">
             <div class="service-title"><strong>FlightAware AeroAPI</strong><span class="service-status">Checking…</span></div>
-            <label>API key<input type="password" inputmode="none" data-osk data-field="api_key" autocomplete="off" spellcheck="false"></label>
+            <label>API key<span class="password-field"><input type="password" inputmode="none" data-osk data-field="api_key" autocomplete="off" spellcheck="false"><button type="button" class="reveal-toggle" data-reveal aria-label="Show password" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="eye" d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle class="eye" cx="12" cy="12" r="3"/><path class="slash" d="M4 4l16 16"/></svg></button></span></label>
             <div class="service-actions"><button type="button" data-action="save">Save</button><button type="button" data-action="clear">Clear</button></div>
             <p class="service-message" aria-live="polite"></p>
           </section>
 
           <section class="service-card" data-service="flightradar24">
             <div class="service-title"><strong>Flightradar24 API</strong><span class="service-status">Checking…</span></div>
-            <label>API token<input type="password" inputmode="none" data-osk data-field="api_token" autocomplete="off" spellcheck="false"></label>
+            <label>API token<span class="password-field"><input type="password" inputmode="none" data-osk data-field="api_token" autocomplete="off" spellcheck="false"><button type="button" class="reveal-toggle" data-reveal aria-label="Show password" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="eye" d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle class="eye" cx="12" cy="12" r="3"/><path class="slash" d="M4 4l16 16"/></svg></button></span></label>
             <div class="service-actions"><button type="button" data-action="save">Save</button><button type="button" data-action="clear">Clear</button></div>
             <p class="service-message" aria-live="polite"></p>
           </section>
 
           <section class="service-card" data-service="amadeus">
             <div class="service-title"><strong>Amadeus Self-Service</strong><span class="service-status">Checking…</span></div>
-            <div class="service-fields"><label>Client ID<input type="password" inputmode="none" data-osk data-field="client_id" autocomplete="off" spellcheck="false"></label><label>Client secret<input type="password" inputmode="none" data-osk data-field="client_secret" autocomplete="off" spellcheck="false"></label></div>
+            <div class="service-fields"><label>Client ID<span class="password-field"><input type="password" inputmode="none" data-osk data-field="client_id" autocomplete="off" spellcheck="false"><button type="button" class="reveal-toggle" data-reveal aria-label="Show password" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="eye" d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle class="eye" cx="12" cy="12" r="3"/><path class="slash" d="M4 4l16 16"/></svg></button></span></label><label>Client secret<span class="password-field"><input type="password" inputmode="none" data-osk data-field="client_secret" autocomplete="off" spellcheck="false"><button type="button" class="reveal-toggle" data-reveal aria-label="Show password" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="eye" d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle class="eye" cx="12" cy="12" r="3"/><path class="slash" d="M4 4l16 16"/></svg></button></span></label></div>
             <div class="service-actions"><button type="button" data-action="save">Save</button><button type="button" data-action="clear">Clear</button></div>
             <p class="service-message" aria-live="polite"></p>
           </section>
@@ -176,6 +194,10 @@
           </dl>
         </aside>
       </section>
+
+      <div id="power-overlay" class="power-overlay" hidden>
+        <div><strong id="power-overlay-title"></strong><p id="power-overlay-text"></p></div>
+      </div>
 
       <footer class="info-rail">
         <span><strong id="aircraft-count">0</strong><span id="aircraft-count-label"> aircraft</span></span>

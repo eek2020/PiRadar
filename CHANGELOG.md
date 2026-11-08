@@ -18,3 +18,7 @@ All notable changes will be documented here. The project follows [Semantic Versi
 - Touchscreen calibration and kiosk input hardening for the reference display
 - Public contribution and security-reporting guidance
 - Hardware-beta README with verified display, stylus, Wi-Fi, operating, and future receiver guidance
+- Separate on-screen keyboards: a large-key postcode pad and a full UK keyboard with Shift and Caps Lock for passwords and API keys
+- Show/hide toggle on every password field
+- Safe Shut down and Restart under Map options → Power
+- Over-the-air updater (`scripts/update.sh`) with pre-install tests, health check and automatic rollback
