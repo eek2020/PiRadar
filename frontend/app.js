@@ -54,6 +54,9 @@ const elements = {
   textKeyboard: document.querySelector("#text-keyboard"),
   power: document.querySelector("#power"),
   updates: document.querySelector("#updates"),
+  wifiError: document.querySelector("#wifi-error"),
+  wifiErrorMessage: document.querySelector("#wifi-error-message"),
+  wifiErrorDetail: document.querySelector("#wifi-error-detail"),
   appVersion: document.querySelector("#app-version"),
   updateInstalled: document.querySelector("#update-installed"),
   updateChannel: document.querySelector("#update-channel"),
@@ -686,6 +689,7 @@ function selectWifiNetwork(network) {
   elements.wifiSelected.textContent = network.ssid;
   elements.wifiPassword.value = "";
   maskPasswords(elements.wifi);
+  showWifiError(null);
   elements.wifiPasswordLabel.hidden = !network.secured;
   elements.wifiPassword.closest(".password-field").hidden = !network.secured;
   elements.wifiForm.hidden = false;
@@ -694,6 +698,16 @@ function selectWifiNetwork(network) {
   } else {
     closeKeyboard();
   }
+}
+
+// Error box inside the Wi-Fi form. Pass null to hide it.
+function showWifiError(message, detail = "") {
+  elements.wifiError.hidden = !message;
+  elements.wifiErrorMessage.textContent = message || "";
+  elements.wifiErrorDetail.textContent = detail ? `Reason: ${detail}` : "";
+  // The panel scrolls on the 480px-tall screen; bring the advice into view
+  // along with the buttons beneath it.
+  if (message) elements.wifiForm.querySelector(".wifi-actions").scrollIntoView({ block: "nearest" });
 }
 
 async function connectWifiNetwork() {
@@ -705,6 +719,7 @@ async function connectWifiNetwork() {
     return;
   }
   closeKeyboard();
+  showWifiError(null);
   elements.connectWifi.disabled = true;
   elements.wifiStatus.dataset.state = "";
   elements.wifiStatus.textContent = `Connecting to ${state.selectedNetwork.ssid}…`;
@@ -715,7 +730,14 @@ async function connectWifiNetwork() {
       body: JSON.stringify({ ssid: state.selectedNetwork.ssid, password }),
     });
     const payload = await response.json();
-    if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+    if (!response.ok) {
+      // Show the advice under the password box, with NetworkManager's own
+      // reason in small print so a failure can be diagnosed from a photo.
+      showWifiError(payload.error || `HTTP ${response.status}`, payload.detail);
+      elements.wifiStatus.dataset.state = "error";
+      elements.wifiStatus.textContent = "Not connected";
+      return;
+    }
     elements.wifiPassword.value = "";
     elements.wifiForm.hidden = true;
     elements.wifiStatus.textContent = `Connected to ${payload.connection.ssid}`;

@@ -264,3 +264,8 @@ body.osk-open .services, body.osk-open .wifi, body.osk-open .options { max-heigh
 /* Version line at the foot of Map options */
 .app-version { margin: 12px 0 0; color: var(--muted); font: 9px ui-monospace, monospace; letter-spacing: .04em; text-align: center; }
 .app-version:empty { display: none; }
+
+/* Wi-Fi connection error, shown under the password box */
+.wifi-error { margin: 8px 0 0; padding: 8px 10px; border: 1px solid rgba(255,125,115,.38); border-radius: 7px; background: rgba(255,125,115,.07); color: #ffd2cc; font-size: 11px; line-height: 1.4; }
+.wifi-error[hidden] { display: none; }
+.wifi-error small { display: block; margin-top: 4px; color: var(--muted); font: 9px ui-monospace, monospace; overflow-wrap: anywhere; }

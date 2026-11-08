@@ -29,8 +29,8 @@ class SplashThemeTests(unittest.TestCase):
         self.assertIn("install-splash.sh", install)
         splash = (ROOT / "scripts" / "install-splash.sh").read_text()
         # Boot files are always backed up and the cmdline is kept to one line.
-        self.assertIn("piradar-bak", splash)
-        self.assertIn("head -n 1", splash)
+        self.assertIn("scripts/lib/bootline.sh", splash)
+        self.assertIn("splash-cmdline-added", splash)
 
 
 if __name__ == "__main__":

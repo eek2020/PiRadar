@@ -71,7 +71,7 @@ class WifiTests(unittest.TestCase):
         manager.scan()
         runner.error = "Error: Connection activation failed: Secrets were required"
 
-        with self.assertRaisesRegex(WifiError, "Check the Wi-Fi password"):
+        with self.assertRaisesRegex(WifiError, "Check the password"):
             manager.connect("Visible", "wrong password")
 
     def test_password_cannot_inject_extra_interactive_answers(self) -> None:
@@ -81,6 +81,50 @@ class WifiTests(unittest.TestCase):
 
         with self.assertRaisesRegex(WifiError, "password is invalid"):
             manager.connect("Visible", "first answer\nsecond answer")
+
+
+    def _manager(self, security: str = "WPA2") -> tuple[NetworkManagerWifi, RecordingRunner]:
+        runner = RecordingRunner(f":Home:75:{security}\n")
+        manager = NetworkManagerWifi(runner)
+        manager.scan()
+        return manager, runner
+
+    def test_impossible_password_lengths_are_caught_before_trying(self) -> None:
+        manager, runner = self._manager("WPA2")
+        calls_after_scan = len(runner.calls)
+        with self.assertRaisesRegex(WifiError, "8 to 63 characters long; this one is 7"):
+            manager.connect("Home", "short12")
+        with self.assertRaisesRegex(WifiError, "8 to 63"):
+            manager.connect("Home", "x" * 64)
+        self.assertEqual(len(runner.calls), calls_after_scan, "router should not be contacted")
+        manager.connect("Home", "a1" * 32)  # 64 hex digits is a valid raw key
+
+    def test_wpa3_mixed_mode_failure_points_at_compatibility_mode(self) -> None:
+        manager, runner = self._manager("WPA2 WPA3")
+        runner.error = "Error: Connection activation failed: Secrets were required, but not provided"
+        with self.assertRaises(WifiError) as raised:
+            manager.connect("Home", "correct password")
+        self.assertIn("compatibility mode", str(raised.exception))
+        self.assertIn("Secrets were required", raised.exception.detail)
+
+    def test_wpa2_password_failure_does_not_mention_wpa3(self) -> None:
+        manager, runner = self._manager("WPA2")
+        runner.error = "Error: Connection activation failed: Secrets were required, but not provided"
+        with self.assertRaises(WifiError) as raised:
+            manager.connect("Home", "wrong password")
+        self.assertNotIn("WPA3", str(raised.exception))
+
+    def test_other_failures_get_actionable_messages(self) -> None:
+        cases = {
+            "Error: Connection activation failed: IP configuration could not be reserved": "did not give it an address",
+            "Error: Timeout expired (30 seconds)": "did not answer in time",
+            "Error: No network with SSID 'Home' found.": "out of range",
+        }
+        for detail, expected in cases.items():
+            manager, runner = self._manager("WPA2")
+            runner.error = detail
+            with self.assertRaisesRegex(WifiError, expected):
+                manager.connect("Home", "good password")
 
 
 if __name__ == "__main__":

@@ -21,6 +21,8 @@ All notable changes will be documented here. The project follows [Semantic Versi
 - Separate on-screen keyboards: a large-key postcode pad and a full UK keyboard with Shift and Caps Lock for passwords and API keys
 - Show/hide toggle on every password field
 - Safe Shut down and Restart under Map options → Power
+- Clear Wi-Fi failure messages (wrong-length password, WPA3 mixed mode, weak signal, no address) with NetworkManager's reason shown and logged
+- Wi-Fi compatibility mode for WPA2/WPA3 mixed-mode routers on Pi 3 class boards (`scripts/wifi-compat.sh`)
 - Version and build shown at the foot of Map options
 - Optional PiRadar boot, restart and shutdown splash (`scripts/install-splash.sh`)
 - Over-the-air updates: Software update panel (check, install, optional overnight updates) driving `scripts/update.sh`, with exact-commit installs, pre-install tests, health check, automatic rollback and no downgrades

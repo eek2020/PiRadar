@@ -10,7 +10,9 @@
 #   - kiosk: asks Plymouth to leave its last frame on screen until the
 #     radar app draws, so there is no flash of console text in between
 #
-# Boot files are backed up to *.piradar-bak before the first change.
+# Boot files are backed up to *.piradar-bak before the first change. Only the
+# options this script added are removed again, so other PiRadar boot settings
+# (such as Wi-Fi compatibility mode) are left alone.
 #
 # Usage:
 #   sudo /opt/piradar/scripts/install-splash.sh            # install / refresh
@@ -32,14 +34,10 @@ state_file=/etc/piradar/splash-previous-theme
 dropin_dir=/etc/systemd/system/cage@tty1.service.d
 dropin_file="$dropin_dir/piradar-splash.conf"
 
-# Trixie keeps boot files in /boot/firmware; older releases used /boot.
-# PIRADAR_BOOT_DIR overrides it, which the test suite uses.
-boot_dir=${PIRADAR_BOOT_DIR:-}
-if [ -z "$boot_dir" ]; then
-  if [ -f /boot/firmware/cmdline.txt ]; then boot_dir=/boot/firmware; else boot_dir=/boot; fi
-fi
-cmdline="$boot_dir/cmdline.txt"
-config="$boot_dir/config.txt"
+added_file=/etc/piradar/splash-cmdline-added
+
+# Shared boot-file helpers (boot_dir, cmdline, config, cmdline_add, ...).
+. "$source_dir/scripts/lib/bootline.sh"
 
 for tool in plymouth-set-default-theme update-initramfs; do
   if ! command -v "$tool" >/dev/null 2>&1; then
@@ -52,28 +50,31 @@ if [ ! -f "$cmdline" ] || [ ! -f "$config" ]; then
   exit 1
 fi
 
-# Write a file through a temporary copy, then move it into place, so a
-# power cut mid-write cannot leave a half-written boot file.
-replace_file() {
-  target=$1
-  temporary="$target.piradar-new"
-  cat >"$temporary"
-  sync "$temporary" 2>/dev/null || sync
-  mv "$temporary" "$target"
-}
-
-backup_once() {
-  [ -e "$1.piradar-bak" ] || cp -p "$1" "$1.piradar-bak"
-}
-
 # --- Remove ----------------------------------------------------------------
 if [ "${1:-}" = "--remove" ]; then
-  for file in "$cmdline" "$config"; do
-    if [ -e "$file.piradar-bak" ]; then
-      replace_file "$file" <"$file.piradar-bak"
-      rm -f "$file.piradar-bak"
-    fi
-  done
+  # Remove only the kernel options this script added. Older installs did not
+  # record them, so fall back to the two options it always adds itself.
+  if [ -s "$added_file" ]; then
+    # shellcheck disable=SC2046
+    cmdline_remove $(cat "$added_file")
+  else
+    cmdline_remove logo.nologo vt.global_cursor_default=0
+  fi
+  rm -f "$added_file"
+  # Remove the block it appended to config.txt, and nothing else.
+  python3 - "$config" <<'PY2'
+import os, sys
+path = sys.argv[1]
+text = open(path).read()
+block = "\n[all]\n# PiRadar boot splash\ndisable_splash=1\n"
+if block in text:
+    temporary = path + ".piradar-new"
+    with open(temporary, "w") as stream:
+        stream.write(text.replace(block, "", 1))
+        stream.flush()
+        os.fsync(stream.fileno())
+    os.replace(temporary, path)
+PY2
   rm -f "$dropin_file"
   rmdir "$dropin_dir" 2>/dev/null || true
   systemctl daemon-reload
@@ -113,18 +114,9 @@ if ! grep -q '^disable_splash=1' "$config"; then
 fi
 
 # 3. cmdline.txt: must stay a single line. Add any missing options to it.
-line=$(head -n 1 "$cmdline" | tr -d '\r\n')
-updated=$line
-for option in quiet splash logo.nologo vt.global_cursor_default=0; do
-  case " $updated " in
-    *" $option "*) ;;
-    *) updated="$updated $option" ;;
-  esac
-done
-if [ "$updated" != "$line" ]; then
-  backup_once "$cmdline"
-  printf '%s\n' "$updated" | replace_file "$cmdline"
-fi
+# Record what was actually added, so --remove takes out exactly those.
+install -d -m 0755 "$(dirname "$added_file")"
+cmdline_add quiet splash logo.nologo vt.global_cursor_default=0 >>"$added_file"
 
 # 4. Kiosk hand-over: keep the splash's last frame on screen until the app
 #    paints. The leading "-" means a missing Plymouth never blocks the kiosk.

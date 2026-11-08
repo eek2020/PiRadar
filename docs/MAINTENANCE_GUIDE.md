@@ -28,6 +28,23 @@ Settings in `/etc/piradar` and `/var/lib/piradar` are never touched by updates.
 
 Map options → Power offers Shut down and Restart, each behind a confirm step. The service asks systemd-logind to act, and `polkit/50-piradar-power.rules` permits only those actions for the `piradar` user. The endpoint refuses requests that do not come from the Pi itself. After a shut down, wait for the green activity light to stop flashing before unplugging.
 
+## Wi-Fi troubleshooting
+
+When a connection fails, the Wi-Fi panel explains why under the password box and shows NetworkManager's own reason in small print. The same reason is written to the journal (`journalctl -u piradar | grep Wi-Fi`).
+
+- **Network not in the list.** The Pi 3B only has 2.4GHz Wi-Fi. A router that broadcasts only on 5GHz will not appear; most routers can enable 2.4GHz, or offer a 2.4GHz guest network.
+- **"Wi-Fi passwords are 8 to 63 characters long".** The password typed cannot be valid. Use the eye button to check it.
+- **Right password, still refused, router shows "WPA2 WPA3".** This is a known problem with the Pi 3's Broadcom Wi-Fi and routers in WPA2/WPA3 mixed (transition) mode ([raspberrypi/linux#4976](https://github.com/raspberrypi/linux/issues/4976)). Turn on Wi-Fi compatibility mode, which makes the Pi join over WPA2, then restart:
+
+  ```bash
+  sudo /opt/piradar/scripts/wifi-compat.sh on       # then restart the Pi
+  sudo /opt/piradar/scripts/wifi-compat.sh status
+  sudo /opt/piradar/scripts/wifi-compat.sh off      # undo, then restart
+  ```
+
+  A WPA3-only network will still not work on this hardware; switch the router to WPA2/WPA3 mixed mode or use a WPA2 guest network.
+- **"Did not give it an address".** PiRadar joined but the router refused it an IP address. Restart the router, or check MAC filtering or a device limit.
+
 ## Boot splash (optional)
 
 `scripts/install-splash.sh` replaces the Raspberry Pi boot, restart and shutdown screens with the PiRadar radar splash. It installs the `piradar` Plymouth theme, adds `disable_splash=1` to `config.txt` and `logo.nologo vt.global_cursor_default=0` to `cmdline.txt`, and makes the kiosk keep the splash on screen until the app draws. Both boot files are backed up to `*.piradar-bak` first.

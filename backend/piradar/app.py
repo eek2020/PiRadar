@@ -198,7 +198,10 @@ def build_handler(
                         raise WifiError("Select a network and enter its password.")
                     connection = wifi_manager.connect(ssid, password)
                 except (ValueError, WifiError) as error:
-                    self._json({"error": str(error)}, HTTPStatus.BAD_REQUEST)
+                    response: dict[str, Any] = {"error": str(error)}
+                    if getattr(error, "detail", None):
+                        response["detail"] = error.detail
+                    self._json(response, HTTPStatus.BAD_REQUEST)
                     return
                 self._json({"connection": connection})
                 return

@@ -18,7 +18,7 @@ install -d -m 0755 "$install_dir"
 if [ "$source_dir" != "$install_dir" ]; then
   cp -R "$source_dir/backend" "$source_dir/frontend" "$source_dir/scripts" "$source_dir/boot" "$install_dir/"
 fi
-chmod 0755 "$install_dir/scripts/run-dev.sh" "$install_dir/scripts/start-kiosk.sh" "$install_dir/scripts/update.sh" "$install_dir/scripts/install-splash.sh"
+chmod 0755 "$install_dir/scripts/run-dev.sh" "$install_dir/scripts/start-kiosk.sh" "$install_dir/scripts/update.sh" "$install_dir/scripts/install-splash.sh" "$install_dir/scripts/wifi-compat.sh"
 install -d -m 0755 "$config_dir"
 if [ ! -e "$config_dir/piradar.json" ]; then
   install -m 0644 "$source_dir/config/piradar.example.json" "$config_dir/piradar.json"
