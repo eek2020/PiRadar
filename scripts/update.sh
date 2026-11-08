@@ -11,14 +11,19 @@
 #
 # Normally this runs by itself, as systemd units:
 #   piradar-update.service       "Install update" on the touchscreen
-#   piradar-update-auto.service  nightly timer, only if automatic updates
-#                                are switched on in the touchscreen settings
+#   piradar-update-auto.service  every 15 minutes (piradar-update.timer);
+#                                on by default, can be switched off on screen
+#
+# So a Pi anywhere, behind any router, updates itself: push to GitHub and it
+# installs the new commit within about 15 minutes. If an update needs a
+# restart (for example a boot setting), automatic and button runs restart the
+# Pi themselves, at most once per version so a restart can never loop.
 #
 # It can also be run by hand:
 #   sudo /opt/piradar/scripts/update.sh                # follow the current channel
 #   sudo /opt/piradar/scripts/update.sh some-branch    # switch channel and update
 #   sudo /opt/piradar/scripts/update.sh --if-newer     # skip if already current
-#   sudo /opt/piradar/scripts/update.sh --auto         # what the nightly timer runs
+#   sudo /opt/piradar/scripts/update.sh --auto         # what the timer runs
 #   sudo /opt/piradar/scripts/update.sh --rollback     # undo the last update
 #
 # The channel is remembered in /etc/piradar/update-channel (default: main).
@@ -35,6 +40,9 @@ channel_file=/etc/piradar/update-channel
 status_dir=/var/lib/piradar-update
 status_file="$status_dir/status.json"
 app_settings=/var/lib/piradar/update-settings.json
+# Records the version the Pi last restarted for, so restarts cannot loop.
+reboot_marker="$status_dir/rebooted-for"
+lock_file=${PIRADAR_UPDATE_LOCK:-/run/piradar-update.lock}
 
 if [ "$(id -u)" -ne 0 ]; then
   echo "Run the updater with sudo." >&2
@@ -49,12 +57,25 @@ if [ -z "${PIRADAR_UPDATER_COPY:-}" ]; then
   PIRADAR_UPDATER_COPY=$self_copy exec sh "$self_copy" "$@"
 fi
 
+# Only one update at a time: the button and the timer use separate units, so
+# they could otherwise overlap. A second run simply steps aside.
+exec 9>"$lock_file"
+if ! flock -n 9; then
+  rm -f "$PIRADAR_UPDATER_COPY"
+  echo "Another update is already running."
+  exit 0
+fi
+
 ref=""
 sha=""
+# Automatic checks stay silent until they find something to install, so the
+# screen does not flash "Checking…" every 15 minutes.
+quiet=0
 
 # Record progress for the touchscreen. Python does the JSON escaping and an
 # atomic write, so the app never reads a half-written file.
 write_status() {
+  [ "$quiet" = 1 ] && return 0
   install -d -m 0755 "$status_dir"
   python3 - "$status_file" "$1" "$2" "$ref" "$sha" <<'PY'
 import json, os, sys, tempfile, time
@@ -141,7 +162,7 @@ case "${1:-}" in
     fi
     fail "Rollback failed"
     ;;
-  --auto) mode=auto ;;
+  --auto) mode=auto; quiet=1 ;;
   --if-newer) mode=if-newer ;;
   "") ;;
   -*) echo "Unknown option: $1" >&2; exit 1 ;;
@@ -152,8 +173,8 @@ case "${1:-}" in
     ;;
 esac
 
-# The nightly run does nothing unless automatic updates are switched on.
-if [ "$mode" = auto ] && [ "$(json_value "$app_settings" auto)" != "true" ]; then
+# Automatic updates are on unless someone switched them off on the screen.
+if [ "$mode" = auto ] && [ "$(json_value "$app_settings" auto)" = "false" ]; then
   echo "Automatic updates are switched off."
   exit 0
 fi
@@ -199,6 +220,8 @@ if [ "$mode" != manual ] && [ -n "$installed_sha" ]; then
 fi
 
 # --- 2. Download and test before installing --------------------------------
+# From here on there is a real update in progress, so report it.
+quiet=0
 write_status downloading "Downloading $(printf '%.7s' "$sha")"
 echo "Downloading $(printf '%.7s' "$sha")…"
 curl -fsSL --retry 3 -o "$work/source.tgz" "https://github.com/$repo/archive/$sha.tar.gz" \
@@ -251,6 +274,7 @@ PY
     # restarts. Compare only the boot options PiRadar manages: the firmware
     # adds and rewrites others, so the whole line never matches exactly.
     finished="Updated to $(printf '%.7s' "$sha")"
+    needs_restart=0
     boot_line=/boot/firmware/cmdline.txt
     [ -f "$boot_line" ] || boot_line=/boot/cmdline.txt
     if [ -f "$boot_line" ]; then
@@ -259,11 +283,23 @@ PY
       for managed in brcmfmac.feature_disable=0x82000 logo.nologo vt.global_cursor_default=0; do
         case "$on_disk" in *" $managed "*)
           case "$running" in *" $managed "*) ;; *)
-            finished="$finished. Restart PiRadar to finish: Map options, Power, Restart"
+            needs_restart=1
             break ;;
           esac ;;
         esac
       done
+    fi
+    if [ "$needs_restart" = 1 ]; then
+      if [ "$mode" != manual ] && [ "$(cat "$reboot_marker" 2>/dev/null)" != "$sha" ]; then
+        # Nobody needs to be at the Pi: restart it now to finish. The marker
+        # makes sure this happens only once for this version.
+        printf '%s\n' "$sha" >"$reboot_marker"
+        write_status success "$finished. Restarting the Pi to finish"
+        echo "Update complete: $(cat "$install_dir/VERSION"). Restarting the Pi to finish."
+        systemctl reboot --no-block
+        exit 0
+      fi
+      finished="$finished. Restart PiRadar to finish: Map options, Power, Restart"
     fi
     write_status success "$finished"
     echo "Update complete: $(cat "$install_dir/VERSION")"

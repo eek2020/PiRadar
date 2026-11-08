@@ -25,4 +25,4 @@ All notable changes will be documented here. The project follows [Semantic Versi
 - Wi-Fi compatibility mode for WPA2/WPA3 mixed-mode routers, on by default for Pi 3 / Zero 2 boards and delivered over the air (`scripts/wifi-compat.sh`)
 - Version and build shown at the foot of Map options
 - Optional PiRadar boot, restart and shutdown splash (`scripts/install-splash.sh`)
-- Over-the-air updates: Software update panel (check, install, optional overnight updates) driving `scripts/update.sh`, with exact-commit installs, pre-install tests, health check, automatic rollback and no downgrades
+- Over-the-air updates: Software update panel (check, install, automatic updates every 15 minutes, on by default, with self-restart when needed) driving `scripts/update.sh`, with exact-commit installs, pre-install tests, health check, automatic rollback and no downgrades

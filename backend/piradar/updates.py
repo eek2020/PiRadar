@@ -8,8 +8,8 @@ The app itself never installs anything. It only:
 * starts ``piradar-update.service``, which polkit allows for the piradar user
   and nothing else; the updater runs as root under systemd and applies its
   own tests, backup, health check and rollback;
-* stores the "update automatically overnight" switch, which the nightly
-  ``piradar-update-auto.service`` reads before doing anything.
+* stores the "install updates automatically" switch (on unless switched
+  off), which ``piradar-update-auto.service`` reads every 15 minutes.
 """
 
 from __future__ import annotations
@@ -113,7 +113,9 @@ class UpdateManager:
         return {"state": state, "running": running, "message": status.get("message"), "at": status.get("at")}
 
     def auto_enabled(self) -> bool:
-        return _read_json(self.settings_file).get("auto") is True
+        # On unless someone has switched it off, so a Pi given to someone else
+        # keeps updating itself with nobody at it.
+        return _read_json(self.settings_file).get("auto") is not False
 
     def status(self) -> dict[str, Any]:
         with self._lock:

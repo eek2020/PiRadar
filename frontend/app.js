@@ -1352,7 +1352,7 @@ async function installUpdate() {
 async function setAutoUpdate(enabled) {
   try {
     renderUpdate(await updateRequest({ action: "auto", enabled }));
-    showUpdateMessage(enabled ? "PiRadar will update itself overnight when a new version is available." : "Automatic updates are off.");
+    showUpdateMessage(enabled ? "PiRadar will install new versions by itself, checking every 15 minutes." : "Automatic updates are off.");
   } catch (error) {
     elements.updateAuto.checked = !enabled;
     showUpdateMessage(error.message, true);
@@ -1362,6 +1362,8 @@ async function setAutoUpdate(enabled) {
 // If the screen loads while an update is already running (for example the
 // overnight one), show the notice and follow it.
 function resumeUpdateIfRunning() {
+  // Already following an update: nothing to do.
+  if (!elements.powerOverlay.hidden) return;
   updateRequest().then((update) => {
     if (update.progress.running) {
       updateRequestedAt = Date.parse(update.progress.at) || Date.now();
@@ -1411,3 +1413,6 @@ window.setInterval(() => {
 
 start();
 resumeUpdateIfRunning();
+// Automatic updates start on their own, so look every 30 seconds (a cheap,
+// local request) and show the progress notice when one is installing.
+window.setInterval(resumeUpdateIfRunning, 30000);

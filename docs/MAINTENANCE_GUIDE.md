@@ -9,7 +9,7 @@ Inspect application logs with `journalctl -u piradar`. Configuration lives in `/
 PiRadar updates itself from GitHub. Nothing needs to be connected to it.
 
 - **Map options → Software update** shows the installed commit and the channel it follows, checks GitHub for the newest commit, and offers **Install update** when there is a genuinely newer version.
-- **Update automatically** (off by default) lets `piradar-update.timer` install new versions overnight, around 03:30.
+- **Update automatically** is **on by default**. `piradar-update.timer` checks GitHub every 15 minutes and installs any newer commit on the channel, so a Pi anywhere, behind any router, updates itself soon after a push with nobody at it. If an update needs a restart (for example a boot setting), the Pi restarts itself, at most once per version. Checks that find nothing are silent; switch it off on the screen if wanted.
 
 Every update, however it starts, runs `scripts/update.sh` as root under systemd. It resolves the channel to an exact commit, downloads it and runs the test suite before changing anything. Then it backs up `/opt/piradar` to `/opt/piradar.previous`, installs, restarts and checks `/api/health`. If the install or the health check fails, it restores the backup automatically. Automatic and touchscreen updates never move to an older commit: if the channel is behind what is installed, they do nothing.
 

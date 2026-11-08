@@ -129,13 +129,17 @@ class UpdateManagerTests(unittest.TestCase):
         with self.assertRaisesRegex(UpdateError, "update rule"):
             self.manager.install()
 
-    def test_auto_switch_is_stored_where_the_nightly_updater_reads_it(self) -> None:
-        self.assertFalse(self.manager.status()["auto"])
-        self.manager.set_auto(True)
-        stored = json.loads(self.manager.settings_file.read_text())
-        self.assertEqual(stored, {"auto": True})
+    def test_automatic_updates_are_on_until_switched_off(self) -> None:
+        # A Pi handed to someone else must keep updating with nobody at it.
         self.assertTrue(self.manager.status()["auto"])
+        self.manager.set_auto(False)
+        stored = json.loads(self.manager.settings_file.read_text())
+        self.assertEqual(stored, {"auto": False})
+        self.assertFalse(self.manager.status()["auto"])
+        # Root's updater must be able to read the switch.
         self.assertEqual(self.manager.settings_file.stat().st_mode & 0o777, 0o644)
+        self.manager.set_auto(True)
+        self.assertTrue(self.manager.status()["auto"])
 
 
 class UpdatePlumbingTests(unittest.TestCase):
@@ -148,13 +152,20 @@ class UpdatePlumbingTests(unittest.TestCase):
         self.assertIn('action.lookup("verb") === "start"', rule)
         self.assertIn("--if-newer", (root / "systemd" / "piradar-update.service").read_text())
         self.assertIn("--auto", (root / "systemd" / "piradar-update-auto.service").read_text())
-        self.assertIn("Unit=piradar-update-auto.service", (root / "systemd" / "piradar-update.timer").read_text())
+        timer = (root / "systemd" / "piradar-update.timer").read_text()
+        self.assertIn("Unit=piradar-update-auto.service", timer)
+        self.assertIn("OnUnitActiveSec=15min", timer)
         install = (root / "scripts" / "install.sh").read_text()
         for name in ("piradar-update.service", "piradar-update-auto.service", "piradar-update.timer", "50-piradar-update.rules"):
             self.assertIn(name, install)
         update = (root / "scripts" / "update.sh").read_text()
         self.assertIn("/var/lib/piradar/update-settings.json", update)
         self.assertIn("/var/lib/piradar-update/status.json", update)
+        # Fully remote: on by default, restarts itself at most once per version,
+        # and never runs two updates at once.
+        self.assertIn('json_value "$app_settings" auto)" = "false"', update)
+        self.assertIn("reboot_marker", update)
+        self.assertIn("flock -n 9", update)
 
 
 if __name__ == "__main__":

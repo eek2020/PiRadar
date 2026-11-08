@@ -1,12 +1,13 @@
-# Nightly check for PiRadar updates. A random delay spreads the load, and
-# Persistent= catches up after a night the Pi was switched off.
+# Check GitHub for PiRadar updates every 15 minutes, so a Pi anywhere updates
+# itself soon after a push. Checks that find nothing new are silent and cheap
+# (two small GitHub API calls). Switch off under Map options -> Software update.
 [Unit]
-Description=Nightly PiRadar update check
+Description=PiRadar update check every 15 minutes
 
 [Timer]
-OnCalendar=*-*-* 03:30
-RandomizedDelaySec=45min
-Persistent=true
+OnBootSec=3min
+OnUnitActiveSec=15min
+RandomizedDelaySec=90s
 Unit=piradar-update-auto.service
 
 [Install]
