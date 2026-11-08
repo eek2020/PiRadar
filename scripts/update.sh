@@ -124,6 +124,17 @@ if sh "$source_dir/scripts/install.sh" >"$work/install.log" 2>&1; then
   printf '%s (%s)\n' "$ref" "$(date -u +%Y-%m-%dT%H:%MZ)" >"$install_dir/VERSION"
   echo "Restarting PiRadar…"
   if restart_services; then
+    # If the boot splash has been installed (an opt-in step), keep it in step
+    # with the update. Only rebuild when the theme actually changed, because
+    # that means rebuilding the initramfs. A splash problem never fails the
+    # update: the radar itself is already running the new version.
+    splash_theme=/usr/share/plymouth/themes/piradar
+    if [ -d "$splash_theme" ] && [ -d "$install_dir/boot/plymouth/piradar" ] \
+      && ! diff -rq "$install_dir/boot/plymouth/piradar" "$splash_theme" >/dev/null 2>&1; then
+      echo "Refreshing the boot splash…"
+      sh "$install_dir/scripts/install-splash.sh" >/dev/null \
+        || echo "Warning: the boot splash could not be refreshed. Run install-splash.sh by hand." >&2
+    fi
     echo "Update complete: $(cat "$install_dir/VERSION")"
     exit 0
   fi
