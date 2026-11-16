@@ -9,7 +9,7 @@ class MockProviderTests(unittest.TestCase):
     def test_returns_normalized_unique_tracks(self) -> None:
         provider = MockAircraftProvider(51.5, -0.1)
         aircraft = provider.aircraft()
-        self.assertEqual(len(aircraft), 6)
+        self.assertEqual(len(aircraft), 9)
         self.assertEqual(len({track.hex for track in aircraft}), len(aircraft))
         for track in aircraft:
             self.assertTrue(-90 <= track.latitude <= 90)
@@ -19,9 +19,9 @@ class MockProviderTests(unittest.TestCase):
     def test_military_mode_returns_only_military_tracks(self) -> None:
         provider = MockAircraftProvider(51.5, -0.1)
         military = provider.aircraft(military=True)
-        self.assertEqual([track.hex for track in military], ["43C6F2"])
+        self.assertEqual({track.hex for track in military}, {"43C6F2", "43C8A1", "43C8A2", "43C3B4"})
         self.assertTrue(all(track.military for track in military))
-        self.assertEqual(sum(track.military for track in provider.aircraft()), 1)
+        self.assertEqual(sum(track.military for track in provider.aircraft()), 4)
 
     def test_is_always_healthy(self) -> None:
         provider = MockAircraftProvider(0, 0)

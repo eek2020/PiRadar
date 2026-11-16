@@ -8,7 +8,7 @@ from piradar.aircraft_types import describe_aircraft_type, describe_operator
 from piradar.models import Aircraft
 
 
-MILITARY_HEXES = frozenset({"43C6F2"})
+MILITARY_HEXES = frozenset({"43C6F2", "43C8A1", "43C8A2", "43C3B4"})
 
 
 class MockAircraftProvider:
@@ -36,6 +36,9 @@ class MockAircraftProvider:
             ("4841A5", "KLM1017", "PH-EXA", "E190", 0.62, 25, 28100, 438, 0),
             ("3C64F6", "DLH7JM", "D-AIDI", "A321", 0.77, 298, 36500, 482, -128),
             ("43C6F2", "RRR4402", "ZM402", "A400", 0.54, 210, 14000, 290, 0),
+            ("43C8A1", "TYPHN1", "ZK301", "EUFI", 0.38, 120, 21000, 420, 0),
+            ("43C8A2", "TYPHN2", "ZK302", "EUFI", 0.40, 124, 21500, 420, 0),
+            ("43C3B4", "HKY21", "ZH777", "H47", 0.22, 320, 1500, 120, 0),
         )
         tracks: list[Aircraft] = []
         for index, (hex_code, callsign, registration, aircraft_type, radius, bearing, altitude, speed, climb) in enumerate(definitions):

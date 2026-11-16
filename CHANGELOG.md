@@ -13,6 +13,9 @@ All notable changes will be documented here. The project follows [Semantic Versi
 - Tests, CI, systemd and installation scaffolding
 - Live adsb.lol provider with caching and stale/offline recovery
 - Full-screen geographic aircraft map with touch-sized controls and selectable telemetry
+- Aircraft drawn by type: 16 silhouette families (e.g. Typhoon delta, F-35, C-17, A400M, Chinook, Osprey, Reaper), sized by class; ICAO type codes are classified on the Pi with a category fallback
+- Settings panels open as a centred, larger dialog over a dimmed map, with touch-sized text and controls; tap the map to close
+- Jets whose type codes start with H (Hawk, Hawker 800, HondaJet) no longer draw as helicopters
 - MIL button showing only military aircraft from adsb.lol's military feed, within `military_range_nm` (default 400 NM); the commercial feed is not fetched while it is on
 - gzip-compressed adsb.lol requests, about 4-5x smaller downloads on mobile data
 - Persistent postcode-based radar positioning

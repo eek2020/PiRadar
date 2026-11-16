@@ -117,6 +117,13 @@ function initializeMap() {
   state.map.on("click", () => {
     clearSelection();
     closeAirportDetail();
+    // Settings open as a dialog over a dimmed map; tapping the map closes it.
+    closeOptions();
+    closeFilters();
+    closeServices();
+    closeWifi();
+    closePower();
+    closeUpdates();
   });
   state.map.on("zoomend", renderAirports);
   centerHome();
@@ -160,43 +167,21 @@ function altitudeColour(track) {
 }
 
 function aircraftClass(track) {
-  const type = (track.aircraft_type || "").toUpperCase();
-  const category = (track.category || "").toUpperCase();
-  if (category === "A7" || /^(H|R22|R44|EC|AS|B06|S76|AW)/.test(type)) return "rotorcraft";
-  if (category === "B1" || /^(GLID|ASW|DG|LS|SZD|VENT|DUOD|JANU)/.test(type)) return "glider";
-  if (["A3", "A4", "A5"].includes(category) || /^(A3|A2[013]|B7|B8|B9|E1|E2|CRJ|DH8|AT7)/.test(type)) return "airliner";
-  if (["A1", "A2", "B4"].includes(category) || /^(C1|C2|P28|PA|BE|DA|SR|M20|TB|PC)/.test(type)) return "light";
-  return "other";
-}
-
-function aircraftPath(kind) {
-  if (kind === "glider") return "M15 2 L16 14 L29 17 L29 19 L16 17 L16 25 L20 28 L20 29 L15 27 L10 29 L10 28 L14 25 L14 17 L1 19 L1 17 L14 14 Z";
-  if (kind === "light") return "M15 2 L17 12 L26 16 L26 18 L17 17 L17 23 L22 26 L22 28 L15 26 L8 28 L8 26 L13 23 L13 17 L4 18 L4 16 L13 12 Z";
-  if (kind === "other") return "M15 2 L18 12 L26 16 L26 19 L18 17 L18 24 L21 27 L21 29 L15 26 L9 29 L9 27 L12 24 L12 17 L4 19 L4 16 L12 12 Z";
-  return "M15 1 L18 11 L28 16 L28 19 L18 17 L18 24 L22 27 L22 29 L15 26 L8 29 L8 27 L12 24 L12 17 L2 19 L2 16 L12 11 Z";
-}
-
-function aircraftMarkup(kind) {
-  if (kind !== "rotorcraft") return `<path class="airframe" d="${aircraftPath(kind)}"/>`;
-  return `
-    <path class="helicopter-body" d="M15 7c-3 0-5 3-5 7v6c0 3 2 5 4 6v3h2v-3c2-1 4-3 4-6v-6c0-4-2-7-5-7z"/>
-    <path class="helicopter-tail" d="M14 25h2v4h5v1H9v-1h5z"/>
-    <path class="helicopter-rotor" d="M2 10h26M15 2v16"/>
-    <circle class="helicopter-hub" cx="15" cy="10" r="2"/>
-  `;
+  return PiRadarIcons.filterClass(PiRadarIcons.family(track));
 }
 
 function aircraftIcon(track, selected) {
   const rotation = Number.isFinite(track.track_deg) ? track.track_deg : 0;
-  const kind = aircraftClass(track);
+  const family = PiRadarIcons.family(track);
+  const size = PiRadarIcons.size(family);
   const label = state.preferences.showLabels
     ? `<span class="aircraft-label">${escapeHtml(track.callsign || track.hex)}</span>`
     : "";
   return L.divIcon({
-    className: `aircraft-marker ${kind}${selected ? " selected" : ""}`,
-    iconSize: [30, 30],
-    iconAnchor: [15, 15],
-    html: `<svg viewBox="0 0 30 30" aria-hidden="true" style="--aircraft-color:${altitudeColour(track)};transform:rotate(${rotation}deg)">${aircraftMarkup(kind)}</svg>${label}`,
+    className: `aircraft-marker ${family}${selected ? " selected" : ""}`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+    html: `<svg viewBox="0 0 32 32" aria-hidden="true" style="--aircraft-color:${altitudeColour(track)};transform:rotate(${rotation}deg)">${PiRadarIcons.markup(family)}</svg>${label}`,
   });
 }
 

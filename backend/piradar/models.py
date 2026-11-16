@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import Any
 
+from piradar.aircraft_icons import icon_family
+
 
 @dataclass(frozen=True, slots=True)
 class Aircraft:
@@ -21,4 +23,6 @@ class Aircraft:
     military: bool = False
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        payload = asdict(self)
+        payload["icon"] = icon_family(self.aircraft_type, self.category)
+        return payload
