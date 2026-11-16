@@ -16,6 +16,8 @@ from piradar.config import Config
 from piradar.location import PostcodeGeocoder
 from piradar.providers import AdsbLolProvider, AircraftProvider, MockAircraftProvider
 from piradar.storage import CredentialsStore, EnrichmentCache, LocationStore
+from piradar.power import PowerError, SystemPower
+from piradar.updates import UpdateError, UpdateManager
 from piradar.wifi import NetworkManagerWifi, WifiError
 
 
@@ -99,6 +101,8 @@ def build_handler(
     credentials_store: CredentialsStore,
     postcode_geocoder: PostcodeGeocoder,
     wifi_manager: NetworkManagerWifi,
+    power: SystemPower,
+    updates: UpdateManager,
 ) -> Type[BaseHTTPRequestHandler]:
     class PiRadarHandler(BaseHTTPRequestHandler):
         server_version = f"PiRadar/{__version__}"
@@ -127,6 +131,14 @@ def build_handler(
             if path == "/api/settings/services":
                 self._json({"services": credentials_store.summary()})
                 return
+            if path == "/api/settings/wifi/diagnostics":
+                # Shows log lines from the Pi, so only to its own screen.
+                if self.client_address[0] not in {"127.0.0.1", "::1"}:
+                    self._json({"error": "diagnostics are only available on the device"}, HTTPStatus.FORBIDDEN)
+                    return
+                ssid = (parse_qs(urlparse(self.path).query).get("ssid") or [None])[0]
+                self._json({"diagnostics": wifi_manager.diagnostics(ssid)})
+                return
             if path == "/api/settings/wifi":
                 try:
                     networks = wifi_manager.scan()
@@ -134,6 +146,10 @@ def build_handler(
                     self._json({"error": str(error)}, HTTPStatus.SERVICE_UNAVAILABLE)
                     return
                 self._json({"networks": networks})
+                return
+            if path == "/api/system/update":
+                # Local files only; never calls GitHub, so it is cheap to poll.
+                self._json({"update": updates.status()})
                 return
             if path == "/api/aircraft":
                 provider = runtime.provider
@@ -194,9 +210,50 @@ def build_handler(
                         raise WifiError("Select a network and enter its password.")
                     connection = wifi_manager.connect(ssid, password)
                 except (ValueError, WifiError) as error:
-                    self._json({"error": str(error)}, HTTPStatus.BAD_REQUEST)
+                    response: dict[str, Any] = {"error": str(error)}
+                    if getattr(error, "detail", None):
+                        response["detail"] = error.detail
+                    self._json(response, HTTPStatus.BAD_REQUEST)
                     return
                 self._json({"connection": connection})
+                return
+            if path == "/api/system/update":
+                if self.client_address[0] not in {"127.0.0.1", "::1"}:
+                    self._json({"error": "updates can only be managed on the device"}, HTTPStatus.FORBIDDEN)
+                    return
+                try:
+                    payload = self._read_json()
+                    action = payload.get("action")
+                    if action == "check":
+                        result = updates.check(force=bool(payload.get("force")))
+                    elif action == "install":
+                        result = updates.install()
+                    elif action == "auto" and isinstance(payload.get("enabled"), bool):
+                        result = updates.set_auto(payload["enabled"])
+                    else:
+                        raise UpdateError("Choose check, install or auto.")
+                except (ValueError, UpdateError) as error:
+                    self._json({"error": str(error)}, HTTPStatus.BAD_REQUEST)
+                    return
+                self._json({"update": result})
+                return
+            if path == "/api/system/power":
+                # Shutdown/restart is only honoured from the Pi itself. The
+                # server binds to loopback by default; this guards the case
+                # where someone points PIRADAR_HOST at the network.
+                if self.client_address[0] not in {"127.0.0.1", "::1"}:
+                    self._json({"error": "power control is only available on the device"}, HTTPStatus.FORBIDDEN)
+                    return
+                try:
+                    payload = self._read_json()
+                    action = payload.get("action")
+                    if not isinstance(action, str):
+                        raise PowerError("Choose shut down or restart.")
+                    result = power.request(action)
+                except (ValueError, PowerError) as error:
+                    self._json({"error": str(error)}, HTTPStatus.BAD_REQUEST)
+                    return
+                self._json({"power": result})
                 return
             if path != "/api/settings/services":
                 self._json({"error": "not found"}, HTTPStatus.NOT_FOUND)
@@ -275,6 +332,8 @@ def create_server(
     location_store: LocationStore | None = None,
     postcode_geocoder: PostcodeGeocoder | None = None,
     wifi_manager: NetworkManagerWifi | None = None,
+    power: SystemPower | None = None,
+    updates: UpdateManager | None = None,
 ) -> ThreadingHTTPServer:
     configured_frontend = os.getenv("PIRADAR_FRONTEND_DIR")
     resolved_frontend = frontend_dir or (
@@ -292,6 +351,8 @@ def create_server(
         resolved_credentials,
         postcode_geocoder or PostcodeGeocoder(),
         wifi_manager or NetworkManagerWifi(),
+        power or SystemPower(),
+        updates or UpdateManager(config.state_dir),
     )
     return ThreadingHTTPServer((config.host, config.port), handler)
 

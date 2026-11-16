@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=PiRadar
+Description=PiRadar boot, restart and shutdown splash
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/piradar
+ScriptFile=/usr/share/plymouth/themes/piradar/piradar.script

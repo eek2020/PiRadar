@@ -13,7 +13,8 @@ const state = {
   selectedAirport: null,
   selectedNetwork: null,
   keyboardTarget: null,
-  keyboardSymbols: false,
+  keyboardShift: false,
+  keyboardCaps: false,
   latest: [],
   militaryOnly: false,
   preferences: {
@@ -52,6 +53,28 @@ const elements = {
   locationStatus: document.querySelector("#location-status"),
   saveLocation: document.querySelector("#save-location"),
   postcodeKeyboard: document.querySelector("#postcode-keyboard"),
+  textKeyboard: document.querySelector("#text-keyboard"),
+  power: document.querySelector("#power"),
+  updates: document.querySelector("#updates"),
+  wifiError: document.querySelector("#wifi-error"),
+  wifiErrorMessage: document.querySelector("#wifi-error-message"),
+  wifiErrorDetail: document.querySelector("#wifi-error-detail"),
+  appVersion: document.querySelector("#app-version"),
+  updateInstalled: document.querySelector("#update-installed"),
+  updateChannel: document.querySelector("#update-channel"),
+  updateLatest: document.querySelector("#update-latest"),
+  updateMessage: document.querySelector("#update-message"),
+  updateCheck: document.querySelector("#update-check"),
+  updateInstall: document.querySelector("#update-install"),
+  updateAuto: document.querySelector("#update-auto"),
+  powerChoices: document.querySelector("#power-choices"),
+  powerConfirm: document.querySelector("#power-confirm"),
+  powerQuestion: document.querySelector("#power-question"),
+  powerGo: document.querySelector("#power-go"),
+  powerMessage: document.querySelector("#power-message"),
+  powerOverlay: document.querySelector("#power-overlay"),
+  powerOverlayTitle: document.querySelector("#power-overlay-title"),
+  powerOverlayText: document.querySelector("#power-overlay-text"),
   wifiStatus: document.querySelector("#wifi-status"),
   wifiNetworks: document.querySelector("#wifi-networks"),
   wifiForm: document.querySelector("#wifi-form"),
@@ -455,7 +478,7 @@ async function saveTravelLocation() {
     elements.locationStatus.textContent = "Enter a complete UK postcode.";
     return;
   }
-  elements.postcodeKeyboard.hidden = true;
+  closeKeyboard();
   elements.saveLocation.disabled = true;
   elements.locationStatus.dataset.state = "";
   elements.locationStatus.textContent = "Finding postcode…";
@@ -581,6 +604,8 @@ function applyPreferences() {
 }
 
 function openOptions() {
+  closePower();
+  closeUpdates();
   clearSelection();
   closeAirportDetail();
   closeFilters();
@@ -588,15 +613,18 @@ function openOptions() {
   closeWifi();
   elements.options.hidden = false;
   elements.optionsControl.setAttribute("aria-expanded", "true");
+  showAppVersion();
 }
 
 function closeOptions() {
   elements.options.hidden = true;
-  elements.postcodeKeyboard.hidden = true;
+  closeKeyboard();
   elements.optionsControl.setAttribute("aria-expanded", "false");
 }
 
 function openFilters() {
+  closePower();
+  closeUpdates();
   clearSelection();
   closeAirportDetail();
   closeOptions();
@@ -612,6 +640,8 @@ function closeFilters() {
 }
 
 function openServices() {
+  closePower();
+  closeUpdates();
   clearSelection();
   closeAirportDetail();
   closeOptions();
@@ -623,9 +653,13 @@ function openServices() {
 
 function closeServices() {
   elements.services.hidden = true;
+  maskPasswords(elements.services);
+  closeKeyboard();
 }
 
 function openWifi() {
+  closePower();
+  closeUpdates();
   clearSelection();
   closeAirportDetail();
   closeOptions();
@@ -637,10 +671,11 @@ function openWifi() {
 
 function closeWifi() {
   elements.wifi.hidden = true;
+  maskPasswords(elements.wifi);
   elements.wifiForm.hidden = true;
   state.selectedNetwork = null;
   if (state.keyboardTarget === elements.wifiPassword) {
-    elements.postcodeKeyboard.hidden = true;
+    closeKeyboard();
     state.keyboardTarget = null;
   }
 }
@@ -669,7 +704,7 @@ function renderWifiNetworks(networks) {
 }
 
 async function loadWifiNetworks() {
-  if (state.keyboardTarget === elements.wifiPassword) elements.postcodeKeyboard.hidden = true;
+  if (state.keyboardTarget === elements.wifiPassword) closeKeyboard();
   elements.wifiStatus.dataset.state = "";
   elements.wifiStatus.textContent = "Scanning for nearby networks…";
   elements.wifiForm.hidden = true;
@@ -693,14 +728,49 @@ function selectWifiNetwork(network) {
   state.selectedNetwork = network;
   elements.wifiSelected.textContent = network.ssid;
   elements.wifiPassword.value = "";
+  maskPasswords(elements.wifi);
+  showWifiError(null);
   elements.wifiPasswordLabel.hidden = !network.secured;
-  elements.wifiPassword.hidden = !network.secured;
+  elements.wifiPassword.closest(".password-field").hidden = !network.secured;
   elements.wifiForm.hidden = false;
   if (network.secured) {
     openKeyboard(elements.wifiPassword);
   } else {
-    elements.postcodeKeyboard.hidden = true;
+    closeKeyboard();
   }
+}
+
+// Full-screen Wi-Fi diagnostics: board, compatibility mode, what the router
+// advertises and the Pi's own Wi-Fi log. Meant to be photographed and sent.
+async function showWifiDiagnostics() {
+  const panel = document.querySelector("#wifi-diagnostics");
+  const text = document.querySelector("#wifi-diagnostics-text");
+  text.textContent = "Collecting…";
+  panel.hidden = false;
+  try {
+    const ssid = state.selectedNetwork ? state.selectedNetwork.ssid : "";
+    const response = await fetch(`/api/settings/wifi/diagnostics?ssid=${encodeURIComponent(ssid)}`, { cache: "no-store" });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+    text.textContent = payload.diagnostics.lines.join("\n");
+  } catch (error) {
+    text.textContent = `Could not collect details: ${error.message}`;
+  }
+}
+
+document.querySelector("#wifi-details").addEventListener("click", showWifiDiagnostics);
+document.querySelector("#close-wifi-diagnostics").addEventListener("click", () => {
+  document.querySelector("#wifi-diagnostics").hidden = true;
+});
+
+// Error box inside the Wi-Fi form. Pass null to hide it.
+function showWifiError(message, detail = "") {
+  elements.wifiError.hidden = !message;
+  elements.wifiErrorMessage.textContent = message || "";
+  elements.wifiErrorDetail.textContent = detail ? `Reason: ${detail}` : "";
+  // The panel scrolls on the 480px-tall screen; bring the advice into view
+  // along with the buttons beneath it.
+  if (message) elements.wifiForm.querySelector(".wifi-actions").scrollIntoView({ block: "nearest" });
 }
 
 async function connectWifiNetwork() {
@@ -711,7 +781,8 @@ async function connectWifiNetwork() {
     elements.wifiStatus.textContent = "Enter the network password.";
     return;
   }
-  elements.postcodeKeyboard.hidden = true;
+  closeKeyboard();
+  showWifiError(null);
   elements.connectWifi.disabled = true;
   elements.wifiStatus.dataset.state = "";
   elements.wifiStatus.textContent = `Connecting to ${state.selectedNetwork.ssid}…`;
@@ -722,7 +793,14 @@ async function connectWifiNetwork() {
       body: JSON.stringify({ ssid: state.selectedNetwork.ssid, password }),
     });
     const payload = await response.json();
-    if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+    if (!response.ok) {
+      // Show the advice under the password box, with NetworkManager's own
+      // reason in small print so a failure can be diagnosed from a photo.
+      showWifiError(payload.error || `HTTP ${response.status}`, payload.detail);
+      elements.wifiStatus.dataset.state = "error";
+      elements.wifiStatus.textContent = "Not connected";
+      return;
+    }
     elements.wifiPassword.value = "";
     elements.wifiForm.hidden = true;
     elements.wifiStatus.textContent = `Connected to ${payload.connection.ssid}`;
@@ -854,7 +932,7 @@ document.querySelector("#close-wifi").addEventListener("click", closeWifi);
 document.querySelector("#scan-wifi").addEventListener("click", loadWifiNetworks);
 document.querySelector("#cancel-wifi").addEventListener("click", () => {
   elements.wifiForm.hidden = true;
-  elements.postcodeKeyboard.hidden = true;
+  closeKeyboard();
   state.selectedNetwork = null;
 });
 elements.wifiForm.addEventListener("submit", (event) => {
@@ -896,59 +974,493 @@ elements.locationForm.addEventListener("submit", (event) => {
   event.preventDefault();
   saveTravelLocation();
 });
-elements.locationPostcode.addEventListener("focus", () => {
-  openKeyboard(elements.locationPostcode);
-});
-elements.locationPostcode.addEventListener("click", () => {
-  openKeyboard(elements.locationPostcode);
-});
-elements.wifiPassword.addEventListener("focus", () => openKeyboard(elements.wifiPassword));
-elements.wifiPassword.addEventListener("click", () => openKeyboard(elements.wifiPassword));
+// ---------------------------------------------------------------------------
+// On-screen keyboards
+//
+// Every typeable field carries a data-osk attribute saying which keyboard it
+// wants:
+//   data-osk="postcode" : a large-key pad with capitals, digits, space,
+//                         delete and Set. Nothing else, because a UK postcode
+//                         needs nothing else.
+//   data-osk            : a full UK (ISO) desktop-style keyboard with Caps
+//                         Lock, both Shift keys and the UK symbol positions,
+//                         including £ on Shift+3 and @ on Shift+'. Non-ASCII
+//                         characters such as £ are sent as UTF-8, which is
+//                         what routers and NetworkManager both use.
+//
+// Layouts are plain data, so changing a key means editing the arrays below.
+// A key is either a single character string (width 1) or an object:
+//   { char, w }                 character key with a custom width
+//   { action, label, w, cls }   function key (backspace, shift, caps, ...)
+//   { spacer: true, w }         empty gap, used for the row stagger
+// Widths are relative within a row; each row fills the keyboard width.
+// ---------------------------------------------------------------------------
+// UK layout: what each key types with Shift held.
+const OSK_SHIFTED = {
+  "`": "¬", "1": "!", "2": '"', "3": "£", "4": "$", "5": "%", "6": "^", "7": "&",
+  "8": "*", "9": "(", "0": ")", "-": "_", "=": "+", "[": "{", "]": "}",
+  ";": ":", "'": "@", "#": "~", "\\": "|", ",": "<", ".": ">", "/": "?",
+};
 
-const keyboardLetters = Array.from(elements.postcodeKeyboard.querySelectorAll(".keyboard-top [data-key], .keyboard-middle [data-key], .keyboard-bottom [data-key]"));
-keyboardLetters.forEach((button) => { button.dataset.letter = button.dataset.key; });
-const keyboardSymbols = ["!", "@", "#", "$", "%", "^", "&", "*", "(", ")", "_", "-", "+", "=", "[", "]", "{", "}", ";", ":", "'", '"', ",", ".", "/", "?"];
+const OSK_LAYOUTS = {
+  postcode: [
+    [..."1234567890"],
+    [..."QWERTYUIOP"],
+    [..."ASDFGHJKL", { action: "backspace", label: "⌫", aria: "Delete last character" }],
+    [..."ZXCVBNM", { action: "space", label: "Space", w: 1.5 }, { action: "submit", label: "Set", w: 1.5, cls: "keyboard-set" }],
+  ],
+  text: [
+    [..."`1234567890-=", { action: "backspace", label: "⌫", w: 2, aria: "Delete last character" }],
+    [{ spacer: true, w: 1.5 }, ..."qwertyuiop[]", { spacer: true, w: 1.5 }],
+    [{ action: "caps", label: "Caps", w: 1.5, cls: "keyboard-mod" }, ..."asdfghjkl;'#", { action: "submit", label: "Enter", w: 1.5, cls: "keyboard-set" }],
+    [{ action: "shift", label: "Shift", w: 1.25, cls: "keyboard-mod" }, ..."\\zxcvbnm,./", { action: "shift", label: "Shift", w: 2.75, cls: "keyboard-mod" }],
+    [{ action: "clear", label: "Clear", w: 2.5, cls: "keyboard-mod" }, { action: "space", label: "Space", w: 10 }, { action: "hide", label: "Hide", w: 2.5, cls: "keyboard-mod" }],
+  ],
+};
 
-function setKeyboardSymbols(enabled) {
-  state.keyboardSymbols = enabled;
-  keyboardLetters.forEach((button, index) => {
-    button.dataset.key = enabled ? keyboardSymbols[index] : button.dataset.letter;
-    button.textContent = button.dataset.key;
+// Build a keyboard's buttons from its layout.
+function buildKeyboard(section, layout) {
+  layout.forEach((row) => {
+    const rowEl = document.createElement("div");
+    rowEl.className = "keyboard-row";
+    const specs = row.map((key) => (typeof key === "string" ? { char: key } : key));
+    rowEl.style.gridTemplateColumns = specs.map((spec) => `${spec.w || 1}fr`).join(" ");
+    specs.forEach((spec) => {
+      if (spec.spacer) { rowEl.append(document.createElement("span")); return; }
+      const button = document.createElement("button");
+      button.type = "button";
+      if (spec.cls) button.className = spec.cls;
+      if (spec.aria) button.setAttribute("aria-label", spec.aria);
+      if (spec.action) {
+        button.dataset.action = spec.action;
+        button.textContent = spec.label;
+      } else {
+        button.dataset.char = spec.char;
+        // Show the shifted symbol in the corner, as on a real keycap.
+        if (OSK_SHIFTED[spec.char]) button.dataset.alt = OSK_SHIFTED[spec.char];
+      }
+      rowEl.append(button);
+    });
+    section.append(rowEl);
   });
-  elements.postcodeKeyboard.querySelector('[data-action="symbols"]').textContent = enabled ? "ABC" : "#+=";
+}
+
+buildKeyboard(elements.postcodeKeyboard, OSK_LAYOUTS.postcode);
+buildKeyboard(elements.textKeyboard, OSK_LAYOUTS.text);
+const oskKeyboards = [elements.postcodeKeyboard, elements.textKeyboard];
+
+// The character a key types right now, given Shift and Caps Lock.
+// Like a real keyboard, Caps Lock affects letters only.
+function oskCharFor(button) {
+  const base = button.dataset.char;
+  if (/^[a-z]$/.test(base)) return state.keyboardShift !== state.keyboardCaps ? base.toUpperCase() : base;
+  return state.keyboardShift && OSK_SHIFTED[base] ? OSK_SHIFTED[base] : base;
+}
+
+// Repaint the full keyboard's labels and modifier highlights.
+function renderTextKeyboard() {
+  elements.textKeyboard.querySelectorAll("[data-char]").forEach((button) => {
+    button.textContent = oskCharFor(button);
+    // When Shift is down the main label already shows the shifted symbol.
+    button.classList.toggle("show-alt", !state.keyboardShift && Boolean(button.dataset.alt));
+  });
+  elements.textKeyboard.querySelectorAll('[data-action="shift"]').forEach((button) => {
+    button.setAttribute("aria-pressed", String(state.keyboardShift));
+  });
+  elements.textKeyboard.querySelector('[data-action="caps"]').setAttribute("aria-pressed", String(state.keyboardCaps));
+}
+
+// Postcode keys never change, so label them once.
+elements.postcodeKeyboard.querySelectorAll("[data-char]").forEach((button) => {
+  button.textContent = button.dataset.char;
+});
+
+// Inputs without a maxlength attribute report -1, which must mean "no limit".
+function keyboardRoom(target) {
+  return target.maxLength > 0 ? target.value.length < target.maxLength : true;
 }
 
 function openKeyboard(target) {
+  const keyboard = target.dataset.osk === "postcode" ? elements.postcodeKeyboard : elements.textKeyboard;
+  // Tapping the field already being typed into keeps Shift/Caps as they are.
+  if (state.keyboardTarget === target && !keyboard.hidden) return;
   state.keyboardTarget = target;
-  setKeyboardSymbols(false);
-  elements.postcodeKeyboard.querySelector('[data-action="submit"]').textContent = target === elements.wifiPassword ? "Connect" : "Set";
-  elements.postcodeKeyboard.hidden = false;
+  state.keyboardShift = false;
+  state.keyboardCaps = false;
+  oskKeyboards.forEach((section) => { section.hidden = section !== keyboard; });
+  if (keyboard === elements.textKeyboard) {
+    keyboard.querySelector('[data-action="submit"]').textContent =
+      target === elements.wifiPassword ? "Connect" : target.closest(".service-card") ? "Save" : "Enter";
+    renderTextKeyboard();
+  }
+  // Shrink tall panels so the field being typed into stays above the keyboard.
+  document.body.style.setProperty("--osk-height", `${keyboard.offsetHeight + 16}px`);
+  document.body.classList.add("osk-open");
+  target.scrollIntoView({ block: "nearest" });
 }
 
-elements.postcodeKeyboard.addEventListener("click", (event) => {
-  const button = event.target.closest("button");
+function closeKeyboard() {
+  oskKeyboards.forEach((section) => { section.hidden = true; });
+  state.keyboardTarget = null;
+  document.body.classList.remove("osk-open");
+}
+
+function submitKeyboardTarget(target) {
+  if (target === elements.wifiPassword) elements.wifiForm.requestSubmit();
+  else if (target === elements.locationPostcode) elements.locationForm.requestSubmit();
+  else {
+    const card = target.closest(".service-card");
+    if (!card) return;
+    // Amadeus has two fields: move on to the next empty one before saving.
+    const next = Array.from(card.querySelectorAll("input")).find((input) => input !== target && !input.value);
+    if (next) { next.focus(); openKeyboard(next); return; }
+    closeKeyboard();
+    updateService(card);
+  }
+}
+
+function handleKeyboardPress(button) {
   const target = state.keyboardTarget;
-  if (!button || !target) return;
-  if (button.dataset.action === "symbols") {
-    setKeyboardSymbols(!state.keyboardSymbols);
-    return;
+  if (!target) return;
+  switch (button.dataset.action) {
+    case "shift": state.keyboardShift = !state.keyboardShift; renderTextKeyboard(); return;
+    case "caps": state.keyboardCaps = !state.keyboardCaps; renderTextKeyboard(); return;
+    case "space": if (keyboardRoom(target)) target.value += " "; return;
+    case "backspace": target.value = target.value.slice(0, -1); return;
+    case "clear": target.value = ""; return;
+    case "hide": target.blur(); closeKeyboard(); return;
+    case "submit": submitKeyboardTarget(target); return;
+    default: break;
   }
-  if (button.dataset.action === "space") {
-    if (target.value.length < target.maxLength) target.value += " ";
-    return;
+  if (!button.dataset.char || !keyboardRoom(target)) return;
+  const onTextKeyboard = button.closest("#text-keyboard") !== null;
+  target.value += onTextKeyboard ? oskCharFor(button) : button.dataset.char;
+  // Shift applies to one character, then lets go, as on a real keyboard.
+  if (onTextKeyboard && state.keyboardShift) {
+    state.keyboardShift = false;
+    renderTextKeyboard();
   }
-  if (button.dataset.action === "backspace") {
-    target.value = target.value.slice(0, -1);
-    return;
-  }
-  if (button.dataset.action === "submit") {
-    (target === elements.wifiPassword ? elements.wifiForm : elements.locationForm).requestSubmit();
-    return;
-  }
-  if (button.dataset.key && target.value.length < target.maxLength) {
-    target.value += button.dataset.key;
-  }
+}
+
+oskKeyboards.forEach((section) => {
+  // pointerdown + preventDefault stops a key stealing focus from the input,
+  // so the field keeps its caret while typing.
+  section.addEventListener("pointerdown", (event) => {
+    if (event.target.closest("button")) event.preventDefault();
+  });
+  section.addEventListener("click", (event) => {
+    const button = event.target.closest("button");
+    if (button) handleKeyboardPress(button);
+  });
 });
+
+// Any field marked data-osk opens the keyboard it asks for.
+document.querySelectorAll("input[data-osk]").forEach((input) => {
+  input.addEventListener("focus", () => openKeyboard(input));
+  input.addEventListener("click", () => openKeyboard(input));
+});
+
+// ---------------------------------------------------------------------------
+// Show / hide password
+//
+// Every password box sits in a .password-field with an eye button. Tapping
+// the eye switches the input between masked and plain text. maskPasswords()
+// puts them all back to masked, and is called whenever a panel closes or a
+// new Wi-Fi network is picked.
+// ---------------------------------------------------------------------------
+function setPasswordVisible(toggle, visible) {
+  const input = toggle.closest(".password-field").querySelector("input");
+  input.type = visible ? "text" : "password";
+  toggle.setAttribute("aria-pressed", String(visible));
+  toggle.setAttribute("aria-label", visible ? "Hide password" : "Show password");
+}
+
+function maskPasswords(scope = document) {
+  scope.querySelectorAll("[data-reveal]").forEach((toggle) => setPasswordVisible(toggle, false));
+}
+
+document.querySelectorAll("[data-reveal]").forEach((toggle) => {
+  // Keep focus (and the on-screen keyboard) on the input while toggling.
+  toggle.addEventListener("pointerdown", (event) => event.preventDefault());
+  toggle.addEventListener("click", (event) => {
+    event.preventDefault();
+    setPasswordVisible(toggle, toggle.getAttribute("aria-pressed") !== "true");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Power: safe shut down and restart
+//
+// Two taps are always needed: pick an action, then confirm it. On confirm the
+// screen switches to a full-screen notice straight away, because the backend
+// may be stopped by the shutdown before its reply arrives.
+// ---------------------------------------------------------------------------
+const POWER_TEXT = {
+  poweroff: {
+    question: "Shut down PiRadar?",
+    button: "Shut down",
+    title: "Shutting down…",
+    detail: "Wait until the green light on the Pi stops flashing, then it is safe to unplug.",
+  },
+  reboot: {
+    question: "Restart PiRadar?",
+    button: "Restart",
+    title: "Restarting…",
+    detail: "The radar will be back in about a minute.",
+  },
+};
+let pendingPowerAction = null;
+
+function openPower() {
+  closeUpdates();
+  clearSelection();
+  closeAirportDetail();
+  closeOptions();
+  closeFilters();
+  closeWifi();
+  closeServices();
+  resetPowerPanel();
+  elements.power.hidden = false;
+}
+
+function closePower() {
+  elements.power.hidden = true;
+  resetPowerPanel();
+}
+
+function resetPowerPanel() {
+  pendingPowerAction = null;
+  elements.powerChoices.hidden = false;
+  elements.powerConfirm.hidden = true;
+  elements.powerMessage.textContent = "";
+  elements.powerMessage.dataset.state = "";
+}
+
+function askPowerConfirm(action) {
+  pendingPowerAction = action;
+  elements.powerQuestion.textContent = POWER_TEXT[action].question;
+  elements.powerGo.textContent = POWER_TEXT[action].button;
+  elements.powerChoices.hidden = true;
+  elements.powerConfirm.hidden = false;
+}
+
+async function runPowerAction() {
+  const action = pendingPowerAction;
+  if (!action) return;
+  const text = POWER_TEXT[action];
+  elements.powerOverlayTitle.textContent = text.title;
+  elements.powerOverlayText.textContent = text.detail;
+  elements.powerOverlay.hidden = false;
+  try {
+    const response = await fetch("/api/system/power", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action }),
+    });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+  } catch (error) {
+    // A dropped connection means the shutdown has already started, so keep
+    // the notice up. Only a real error reply from the Pi undoes it.
+    if (!(error instanceof TypeError)) {
+      elements.powerOverlay.hidden = true;
+      elements.powerMessage.dataset.state = "error";
+      elements.powerMessage.textContent = error.message || "The Pi refused the request.";
+      elements.powerChoices.hidden = false;
+      elements.powerConfirm.hidden = true;
+    }
+  }
+}
+
+document.querySelector("#open-power").addEventListener("click", openPower);
+document.querySelector("#close-power").addEventListener("click", closePower);
+elements.powerChoices.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-power]");
+  if (button) askPowerConfirm(button.dataset.power);
+});
+document.querySelector("#power-cancel").addEventListener("click", resetPowerPanel);
+elements.powerGo.addEventListener("click", runPowerAction);
+
+// ---------------------------------------------------------------------------
+// Software update (over the air)
+//
+// The panel shows what is installed and asks the backend to check GitHub.
+// "Install update" starts the Pi's own updater, which tests, backs up,
+// installs and health-checks by itself, rolling back on failure. While it
+// runs the screen shows a full-screen notice that follows its progress; the
+// kiosk restarts at the end and loads the new version.
+// ---------------------------------------------------------------------------
+const UPDATE_FINISHED = { success: true, rolled_back: true, failed: true, up_to_date: true, interrupted: true };
+let updatePollTimer = null;
+let updateRequestedAt = 0;
+
+function formatUpdateDate(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "" : date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
+
+function renderUpdate(update) {
+  const installed = update.installed || {};
+  // e.g. "0.2.0 · 65e8976 · 8 Nov 2026"
+  const parts = [installed.version, installed.short || "installed by hand", formatUpdateDate(installed.installed_at)];
+  elements.updateInstalled.textContent = parts.filter(Boolean).join(" · ");
+  elements.updateChannel.textContent = update.channel || "main";
+  if (update.latest) {
+    if (update.available) {
+      elements.updateLatest.textContent = `${update.latest.short} · ${update.latest.summary || "New version"}`;
+    } else if (update.latest.direction === "behind") {
+      // The channel is older than what is installed; never offer a downgrade.
+      elements.updateLatest.textContent = `Installed is newer than ${update.channel}`;
+    } else {
+      elements.updateLatest.textContent = "You're up to date";
+    }
+  }
+  elements.updateInstall.disabled = !update.available || update.progress.running;
+  elements.updateAuto.checked = Boolean(update.auto);
+}
+
+function showUpdateMessage(text, isError = false) {
+  elements.updateMessage.dataset.state = isError ? "error" : "";
+  elements.updateMessage.textContent = text || "";
+}
+
+async function updateRequest(body) {
+  const response = await fetch("/api/system/update", {
+    method: body ? "POST" : "GET",
+    cache: "no-store",
+    headers: body ? { "Content-Type": "application/json" } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const payload = await response.json();
+  if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+  return payload.update;
+}
+
+async function checkForUpdates(force = false) {
+  elements.updateCheck.disabled = true;
+  showUpdateMessage("Checking GitHub…");
+  try {
+    const update = await updateRequest({ action: "check", force });
+    renderUpdate(update);
+    showUpdateMessage(update.available ? "A new version is ready to install." : "");
+  } catch (error) {
+    showUpdateMessage(error.message, true);
+  } finally {
+    elements.updateCheck.disabled = false;
+  }
+}
+
+function openUpdates() {
+  closePower();
+  clearSelection();
+  closeAirportDetail();
+  closeOptions();
+  closeFilters();
+  closeWifi();
+  closeServices();
+  elements.updates.hidden = false;
+  showUpdateMessage("");
+  updateRequest().then(renderUpdate).catch(() => {});
+  checkForUpdates(false);
+}
+
+function closeUpdates() {
+  elements.updates.hidden = true;
+}
+
+function showUpdateOverlay(detail) {
+  elements.powerOverlayTitle.textContent = "Updating PiRadar…";
+  elements.powerOverlayText.textContent = detail || "Tests run first. The screen restarts when the new version is ready.";
+  elements.powerOverlay.hidden = false;
+}
+
+// Follow the updater until it finishes. Connection errors are expected while
+// the backend restarts, so they simply keep the notice up.
+function pollUpdate() {
+  window.clearTimeout(updatePollTimer);
+  updatePollTimer = window.setTimeout(async () => {
+    try {
+      const update = await updateRequest();
+      const progress = update.progress;
+      const fresh = progress.at && Date.parse(progress.at) >= updateRequestedAt - 5000;
+      if (progress.running || !fresh) {
+        if (progress.running) showUpdateOverlay(`${progress.message || "Working"}…`);
+        // Give up waiting for the updater to start after two minutes.
+        if (!progress.running && Date.now() - updateRequestedAt > 120000) throw new Error("The update did not start.");
+        pollUpdate();
+        return;
+      }
+      elements.powerOverlay.hidden = true;
+      renderUpdate(update);
+      const failed = progress.state === "failed" || progress.state === "rolled_back";
+      showUpdateMessage(progress.message, failed);
+    } catch (error) {
+      if (error instanceof TypeError) { pollUpdate(); return; }
+      elements.powerOverlay.hidden = true;
+      showUpdateMessage(error.message, true);
+    }
+  }, 3000);
+}
+
+async function installUpdate() {
+  elements.updateInstall.disabled = true;
+  updateRequestedAt = Date.now();
+  showUpdateOverlay();
+  try {
+    await updateRequest({ action: "install" });
+    pollUpdate();
+  } catch (error) {
+    elements.powerOverlay.hidden = true;
+    showUpdateMessage(error.message, true);
+    elements.updateInstall.disabled = false;
+  }
+}
+
+async function setAutoUpdate(enabled) {
+  try {
+    renderUpdate(await updateRequest({ action: "auto", enabled }));
+    showUpdateMessage(enabled ? "PiRadar will install new versions by itself, checking every 15 minutes." : "Automatic updates are off.");
+  } catch (error) {
+    elements.updateAuto.checked = !enabled;
+    showUpdateMessage(error.message, true);
+  }
+}
+
+// If the screen loads while an update is already running (for example the
+// overnight one), show the notice and follow it.
+function resumeUpdateIfRunning() {
+  // Already following an update: nothing to do.
+  if (!elements.powerOverlay.hidden) return;
+  updateRequest().then((update) => {
+    if (update.progress.running) {
+      updateRequestedAt = Date.parse(update.progress.at) || Date.now();
+      showUpdateOverlay(`${update.progress.message || "Working"}…`);
+      pollUpdate();
+    }
+  }).catch(() => {});
+}
+
+document.querySelector("#open-updates").addEventListener("click", openUpdates);
+document.querySelector("#close-updates").addEventListener("click", closeUpdates);
+elements.updateCheck.addEventListener("click", () => checkForUpdates(true));
+elements.updateInstall.addEventListener("click", installUpdate);
+elements.updateAuto.addEventListener("change", () => setAutoUpdate(elements.updateAuto.checked));
+
+// Version line at the foot of Map options, e.g. "PiRadar 0.2.0 · 7643d15",
+// so it is easy to confirm which build an update installed.
+async function showAppVersion() {
+  try {
+    const [health, update] = await Promise.all([
+      fetch("/api/health", { cache: "no-store" }).then((response) => response.json()),
+      updateRequest(),
+    ]);
+    const build = update.installed && update.installed.short ? ` · ${update.installed.short}` : "";
+    elements.appVersion.textContent = `PiRadar ${health.version}${build}`;
+  } catch (error) {
+    elements.appVersion.textContent = "";
+  }
+}
 
 function preventKioskNavigation(event) {
   const link = event.target instanceof Element ? event.target.closest("a[href]") : null;
@@ -968,3 +1480,7 @@ window.setInterval(() => {
 }, 1000);
 
 start();
+resumeUpdateIfRunning();
+// Automatic updates start on their own, so look every 30 seconds (a cheap,
+// local request) and show the progress notice when one is installing.
+window.setInterval(resumeUpdateIfRunning, 30000);

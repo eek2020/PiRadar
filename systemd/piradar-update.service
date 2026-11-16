@@ -1,0 +1,11 @@
+# Started by the touchscreen's "Install update" button (see
+# polkit/50-piradar-update.rules). Skips the work if already up to date.
+[Unit]
+Description=PiRadar software update
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh /opt/piradar/scripts/update.sh --if-newer
+TimeoutStartSec=20min

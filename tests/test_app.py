@@ -11,6 +11,7 @@ from urllib.request import Request, urlopen
 from piradar.app import create_server
 from piradar.config import Config
 from piradar.storage import CredentialsStore, LocationStore
+from piradar.updates import UpdateManager
 
 
 class FakePostcodeGeocoder:
@@ -35,6 +36,24 @@ class FakeWifiManager:
             raise ValueError("network not scanned")
         return {"ssid": ssid, "connected": True}
 
+    def diagnostics(self, ssid: str | None = None) -> dict[str, object]:
+        return {"lines": [f"Router: {ssid}", "Log (most recent last):"]}
+
+
+class FakePower:
+    """Records power requests instead of switching anything off."""
+
+    def __init__(self) -> None:
+        self.requests: list[str] = []
+
+    def request(self, action: str) -> dict[str, object]:
+        from piradar.power import PowerError
+
+        if action not in {"poweroff", "reboot"}:
+            raise PowerError("Choose shut down or restart.")
+        self.requests.append(action)
+        return {"action": action, "accepted": True}
+
 
 class AppTests(unittest.TestCase):
     @classmethod
@@ -45,6 +64,17 @@ class AppTests(unittest.TestCase):
         credentials_store = CredentialsStore(Path(cls.temporary_directory.name) / "credentials.json")
         cls.location_store = LocationStore(Path(cls.temporary_directory.name) / "location.json")
         cls.wifi_manager = FakeWifiManager()
+        cls.power = FakePower()
+        update_root = Path(cls.temporary_directory.name)
+        cls.update_commands: list[list[str]] = []
+        cls.updates = UpdateManager(
+            update_root / "state",
+            install_dir=update_root,
+            channel_file=update_root / "update-channel",
+            status_file=update_root / "update-status.json",
+            fetch=lambda url: {"status": "ahead"} if "/compare/" in url else {"sha": "c" * 40, "commit": {"message": "New build", "committer": {"date": "2026-11-08T13:00:00Z"}}},
+            runner=lambda command, **kwargs: cls.update_commands.append(command),
+        )
         cls.server = create_server(
             config,
             frontend_dir=frontend,
@@ -52,6 +82,8 @@ class AppTests(unittest.TestCase):
             location_store=cls.location_store,
             postcode_geocoder=FakePostcodeGeocoder(),
             wifi_manager=cls.wifi_manager,
+            power=cls.power,
+            updates=cls.updates,
         )
         cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
         cls.thread.start()
@@ -121,9 +153,25 @@ class AppTests(unittest.TestCase):
         self.assertIn('id="wifi-password"', body)
         self.assertIn('id="airport-detail"', body)
         self.assertIn('id="location-postcode"', body)
+        # Two keyboards: a postcode pad and a full keyboard for everything else.
         self.assertIn('id="postcode-keyboard"', body)
-        self.assertIn('data-action="backspace"', body)
-        self.assertIn('data-action="submit"', body)
+        self.assertIn('id="text-keyboard"', body)
+        self.assertIn('id="location-postcode" data-osk="postcode"', body)
+        self.assertIn('id="wifi-password" data-osk', body)
+        # The keys themselves are built in app.js from layout data.
+        with urlopen(self.base_url + "/app.js", timeout=2) as response:
+            script = response.read().decode("utf-8")
+        self.assertIn('action: "backspace"', script)
+        self.assertIn('action: "submit"', script)
+        self.assertIn('action: "caps"', script)
+        self.assertIn('action: "shift"', script)
+
+    def test_update_panel_values_cannot_push_rows_off_screen(self) -> None:
+        # Regression: a long commit message once widened every row past 800px.
+        with urlopen(self.base_url + "/styles.css", timeout=2) as response:
+            body = response.read().decode("utf-8")
+        self.assertIn("grid-template-columns: minmax(0, 1fr)", body)
+        self.assertIn(".update-facts dd { flex: 1 1 auto; min-width: 0;", body)
 
     def test_kiosk_controls_are_touch_optimised_and_hide_the_cursor(self) -> None:
         with urlopen(self.base_url + "/styles.css", timeout=2) as response:
@@ -229,6 +277,63 @@ class AppTests(unittest.TestCase):
 
         connected = self.post_json("/api/settings/wifi", {"ssid": "Guest", "password": ""})
         self.assertEqual(connected["connection"], {"ssid": "Guest", "connected": True})
+
+
+    def test_power_api_accepts_only_shutdown_and_restart(self) -> None:
+        result = self.post_json("/api/system/power", {"action": "poweroff"})
+        self.assertEqual(result["power"], {"action": "poweroff", "accepted": True})
+        self.assertEqual(self.power.requests[-1], "poweroff")
+
+        request = Request(
+            self.base_url + "/api/system/power",
+            data=json.dumps({"action": "halt; rm -rf /"}).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with self.assertRaises(HTTPError) as raised:
+            urlopen(request, timeout=2)
+        self.assertEqual(raised.exception.code, 400)
+        self.assertEqual(self.power.requests, ["poweroff"])
+
+    def test_frontend_has_password_reveal_and_power_controls(self) -> None:
+        with urlopen(self.base_url + "/", timeout=2) as response:
+            body = response.read().decode("utf-8")
+        self.assertEqual(body.count("data-reveal"), body.count('type="password"'))
+        self.assertIn('id="open-power"', body)
+        self.assertIn('data-power="poweroff"', body)
+        self.assertIn('data-power="reboot"', body)
+        self.assertIn('id="open-updates"', body)
+        self.assertIn('id="update-install"', body)
+
+
+    def test_update_api_reports_checks_installs_and_stores_auto(self) -> None:
+        status = self.get_json("/api/system/update")["update"]
+        self.assertEqual(status["channel"], "main")
+        self.assertIsNone(status["available"])
+
+        checked = self.post_json("/api/system/update", {"action": "check"})["update"]
+        self.assertTrue(checked["available"])
+        self.assertEqual(checked["latest"]["summary"], "New build")
+
+        self.post_json("/api/system/update", {"action": "install"})
+        self.assertEqual(self.update_commands[-1], ["systemctl", "start", "--no-block", "piradar-update.service"])
+
+        self.assertTrue(self.post_json("/api/system/update", {"action": "auto", "enabled": True})["update"]["auto"])
+
+        request = Request(
+            self.base_url + "/api/system/update",
+            data=json.dumps({"action": "uninstall"}).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with self.assertRaises(HTTPError) as raised:
+            urlopen(request, timeout=2)
+        self.assertEqual(raised.exception.code, 400)
+
+
+    def test_wifi_diagnostics_endpoint_passes_the_network_name(self) -> None:
+        result = self.get_json("/api/settings/wifi/diagnostics?ssid=Home%20Hub")
+        self.assertEqual(result["diagnostics"]["lines"][0], "Router: Home Hub")
 
 
 if __name__ == "__main__":

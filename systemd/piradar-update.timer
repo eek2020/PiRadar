@@ -1,0 +1,14 @@
+# Check GitHub for PiRadar updates every 15 minutes, so a Pi anywhere updates
+# itself soon after a push. Checks that find nothing new are silent and cheap
+# (two small GitHub API calls). Switch off under Map options -> Software update.
+[Unit]
+Description=PiRadar update check every 15 minutes
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=15min
+RandomizedDelaySec=90s
+Unit=piradar-update-auto.service
+
+[Install]
+WantedBy=timers.target

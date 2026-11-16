@@ -1,13 +1,24 @@
 from __future__ import annotations
 
+import logging
 import os
+import re
 import subprocess
 import threading
 from typing import Any, Callable
 
 
 class WifiError(RuntimeError):
-    """A safe, user-facing Wi-Fi operation error."""
+    """A safe, user-facing Wi-Fi error.
+
+    ``detail`` holds NetworkManager's own wording (never the password), shown
+    in small print under the message and written to the journal, so a failed
+    connection can be diagnosed later.
+    """
+
+    def __init__(self, message: str, detail: str | None = None) -> None:
+        super().__init__(message)
+        self.detail = detail
 
 
 def _split_terse_row(row: str) -> list[str]:
@@ -31,6 +42,14 @@ def _split_terse_row(row: str) -> list[str]:
     return fields
 
 
+LOG = logging.getLogger("piradar.wifi")
+
+# Shown when a WPA2/WPA3 mixed-mode router rejects the Pi. Pi 3 class Wi-Fi
+# chips (brcmfmac) often fail this handshake even with the right password;
+# scripts/wifi-compat.sh applies the known fix.
+WPA3_HINT = "If it is right, this router's WPA3 mode is a known Pi 3 problem: turn on Wi-Fi compatibility mode."
+
+
 class NetworkManagerWifi:
     """Small, dependency-free adapter for NetworkManager's nmcli client."""
 
@@ -40,7 +59,14 @@ class NetworkManagerWifi:
     ) -> None:
         self._runner = runner
         self._lock = threading.RLock()
-        self._visible_ssids: set[str] = set()
+        # Files read for diagnostics; tests point these at temporary copies.
+        self.paths = {
+            "model": "/proc/device-tree/model",
+            "running_cmdline": "/proc/cmdline",
+            "boot_cmdline": ["/boot/firmware/cmdline.txt", "/boot/cmdline.txt"],
+            "kernel": "/proc/sys/kernel/osrelease",
+        }
+        self._visible: dict[str, dict[str, Any]] = {}
 
     def scan(self) -> list[dict[str, Any]]:
         result = self._run(
@@ -90,7 +116,7 @@ class NetworkManagerWifi:
             key=lambda network: (not network["connected"], -network["signal"], network["ssid"].casefold()),
         )
         with self._lock:
-            self._visible_ssids = set(by_ssid)
+            self._visible = dict(by_ssid)
         return networks
 
     def connect(self, ssid: str, password: str) -> dict[str, Any]:
@@ -99,18 +125,176 @@ class NetworkManagerWifi:
         if not isinstance(password, str) or len(password) > 256 or "\n" in password or "\r" in password:
             raise WifiError("The Wi-Fi password is invalid.")
         with self._lock:
-            if ssid not in self._visible_ssids:
-                raise WifiError("That network is no longer in the scan results. Scan again.")
+            network = self._visible.get(ssid)
+        if network is None:
+            raise WifiError("That network is no longer in the scan results. Scan again.")
+        security = str(network.get("security", ""))
+        self._check_password_shape(security, password)
+        if not network.get("connected"):
+            self._forget_saved_profiles(ssid)
 
         command = ["nmcli", "--ask", "--wait", "30", "device", "wifi", "connect", ssid]
         try:
             self._run(command, timeout=35, input=f"{password}\n" if password else None)
         except WifiError as error:
-            message = str(error).lower()
-            if any(token in message for token in ("secret", "password", "authentication", "failed to connect")):
-                raise WifiError("Could not connect. Check the Wi-Fi password and try again.") from None
-            raise
+            friendly = self._explain_failure(str(error), security)
+            LOG.warning("Wi-Fi connect to %r (%s) failed: %s", ssid, security or "open", error)
+            raise WifiError(friendly, detail=str(error)[:200]) from None
         return {"ssid": ssid, "connected": True}
+
+    # --- Diagnostics -----------------------------------------------------
+    # Log lines worth showing: NetworkManager, wpa_supplicant and the
+    # Broadcom driver talking about Wi-Fi association and keys.
+    _LOG_PATTERN = re.compile(
+        r"wlan0|wi-?fi|802-11|supplicant|brcmf|4-?way|handshake|wrong_key|assoc|auth|sae|pmf|"
+        r"secrets|disconnect|ctrl-event|reason|key ?mgmt|psk",
+        re.IGNORECASE,
+    )
+
+    def diagnostics(self, ssid: str | None = None) -> dict[str, Any]:
+        """Everything needed to diagnose a failed connection from one photo.
+
+        The board and kernel, whether Wi-Fi compatibility mode is saved and
+        active, what the router advertises (security flags, channel, signal)
+        and the last Wi-Fi log lines from NetworkManager, wpa_supplicant and
+        the driver. NetworkManager and wpa_supplicant never log passwords.
+        """
+        lines: list[str] = []
+        model = self._read_text(self.paths["model"]).replace("\x00", "").strip() or "unknown board"
+        kernel = self._read_text(self.paths.get("kernel", "")).strip() or os.uname().release
+        lines.append(f"Board: {model} · kernel {kernel}")
+
+        option = "brcmfmac.feature_disable=0x82000"
+        running = self._read_text(self.paths["running_cmdline"]).split()
+        saved: list[str] = []
+        for path in self.paths["boot_cmdline"]:
+            text = self._read_text(path)
+            if text:
+                saved = text.split()
+                break
+        lines.append(
+            "Wi-Fi compatibility mode: "
+            f"saved {'on' if option in saved else 'off'} · active {'on' if option in running else 'off'}"
+        )
+
+        try:
+            listing = self._run(
+                ["nmcli", "--terse", "--escape", "yes", "--fields",
+                 "SSID,BSSID,CHAN,FREQ,SIGNAL,SECURITY,WPA-FLAGS,RSN-FLAGS", "device", "wifi", "list"],
+                timeout=15,
+            )
+            routers = []
+            for row in listing.stdout.splitlines():
+                fields = _split_terse_row(row)
+                if len(fields) != 8 or (ssid and fields[0] != ssid):
+                    continue
+                name, bssid, chan, freq, signal, security, wpa, rsn = fields
+                routers.append(
+                    f"Router: {name} {bssid} ch {chan} {freq} {signal}% {security or 'open'} | WPA: {wpa or '-'} | RSN: {rsn or '-'}"
+                )
+            lines.extend(routers[:4] or [f"Router: {ssid or 'network'} not in the current scan"])
+        except WifiError as error:
+            lines.append(f"Router: scan unavailable ({error})")
+
+        lines.append("Log (most recent last):")
+        lines.extend(self._recent_wifi_log())
+        return {"lines": lines}
+
+    def _recent_wifi_log(self, limit: int = 28) -> list[str]:
+        try:
+            result = self._run(
+                ["journalctl", "--no-pager", "--quiet", "-o", "short", "--since", "-15 min",
+                 "-u", "NetworkManager", "-u", "wpa_supplicant", "-k"],
+                timeout=15,
+            )
+        except WifiError as error:
+            return [f"  (log unavailable: {error})"]
+        kept = []
+        for raw in result.stdout.splitlines():
+            if not self._LOG_PATTERN.search(raw):
+                continue
+            # "Nov 08 20:31:02 planeradar NetworkManager[612]: <info> ..." ->
+            # "20:31:02 NetworkManager: <info> ..." to fit the screen.
+            match = re.match(r"^\w{3} +\d+ (\d\d:\d\d:\d\d) \S+ ([^:\[]+)(?:\[\d+\])?: (.*)$", raw)
+            line = f"{match.group(1)} {match.group(2)}: {match.group(3)}" if match else raw
+            kept.append("  " + line[:170])
+        return kept[-limit:] or ["  (no Wi-Fi log lines in the last 15 minutes)"]
+
+    @staticmethod
+    def _read_text(path: str) -> str:
+        try:
+            with open(path, "rb") as stream:
+                return stream.read(4096).decode("utf-8", "replace")
+        except OSError:
+            return ""
+
+    def _forget_saved_profiles(self, ssid: str) -> None:
+        """Delete saved NetworkManager profiles for this network first.
+
+        A failed attempt can leave a saved profile holding the wrong password.
+        NetworkManager then keeps trying that stale key and reports "Secrets
+        were required, but not provided" even when the new password is right.
+        Clearing it means every attempt uses exactly what was just typed. Only
+        profiles for this SSID are touched, and any problem here is logged and
+        skipped rather than blocking the connection attempt.
+        """
+        try:
+            listing = self._run(
+                ["nmcli", "--terse", "--escape", "yes", "--fields", "UUID,TYPE", "connection", "show"],
+                timeout=10,
+            )
+            for row in listing.stdout.splitlines():
+                fields = _split_terse_row(row)
+                if len(fields) != 2 or fields[1] not in {"802-11-wireless", "wifi"}:
+                    continue
+                uuid = fields[0]
+                saved = self._run(
+                    ["nmcli", "--escape", "no", "--get-values", "802-11-wireless.ssid", "connection", "show", uuid],
+                    timeout=10,
+                )
+                if saved.stdout.rstrip("\n") == ssid:
+                    self._run(["nmcli", "connection", "delete", uuid], timeout=15)
+                    LOG.info("Removed saved Wi-Fi profile %s for %r before reconnecting", uuid, ssid)
+        except WifiError as error:
+            LOG.warning("Could not clear saved Wi-Fi profiles for %r: %s", ssid, error)
+
+    @staticmethod
+    def _check_password_shape(security: str, password: str) -> None:
+        """Catch passwords that cannot be right before trying the router.
+
+        WPA/WPA2/WPA3 personal passwords are 8 to 63 characters, or exactly
+        64 hexadecimal digits. A typo here would otherwise look like a router
+        problem after a 30 second wait.
+        """
+        if "WPA" not in security.upper() or not password:
+            return
+        if len(password) == 64 and all(ch in "0123456789abcdefABCDEF" for ch in password):
+            return
+        length = len(password.encode("utf-8"))
+        if length < 8 or length > 63:
+            raise WifiError(
+                f"Wi-Fi passwords are 8 to 63 characters long; this one is {len(password)}. Check it with the eye button."
+            )
+
+    @staticmethod
+    def _explain_failure(detail: str, security: str) -> str:
+        """Turn NetworkManager's error into advice someone can act on."""
+        text = detail.lower()
+        wpa3 = "WPA3" in security.upper()
+        if "no network with ssid" in text or "not found" in text:
+            return "That network has gone out of range. Move PiRadar closer to the router and scan again."
+        if any(token in text for token in ("ip configuration", "dhcp", "ip4", "no address")):
+            return "PiRadar joined the network but the router did not give it an address. Restart the router, or check it is not blocking new devices."
+        if any(token in text for token in ("secret", "password", "psk", "authentication", "4-way", "handshake")):
+            message = "Could not connect. Check the password with the eye button."
+            return f"{message} {WPA3_HINT}" if wpa3 else message
+        if "timeout" in text or "timed out" in text:
+            message = "The router did not answer in time. Move PiRadar closer to the router and try again."
+            return f"{message} {WPA3_HINT}" if wpa3 else message
+        if "failed to connect" in text or "activation failed" in text or "supplicant" in text:
+            message = "The router turned the connection down."
+            return f"{message} {WPA3_HINT}" if wpa3 else f"{message} Check the password and try again."
+        return "Could not connect to that network. Try again."
 
     def _run(self, command: list[str], timeout: int, input: str | None = None) -> subprocess.CompletedProcess[str]:
         environment = os.environ.copy()

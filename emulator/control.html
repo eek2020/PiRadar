@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PiRadar Emulator</title>
+<style>
+  /* Colours follow the PiRadar app so the screen and the panel feel like one tool. */
+  :root {
+    --bg: #071014; --panel: #0c1a1f; --line: #23413e; --text: #e4f2ef;
+    --muted: #78918f; --mint: #7dffd5; --fault: #ff7d73; --amber: #ffc66b;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 13px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { display: flex; align-items: baseline; gap: 12px; padding: 14px 20px 6px; }
+  header h1 { margin: 0; color: var(--mint); font-size: 17px; letter-spacing: .02em; }
+  header span { color: var(--muted); }
+  main { display: grid; grid-template-columns: minmax(0, 820px) minmax(300px, 1fr); gap: 18px; padding: 10px 20px 20px; }
+  @media (max-width: 1100px) { main { grid-template-columns: 1fr; } }
+
+  /* The emulated touchscreen: a real 800x480 page, scaled to fit. */
+  .bezel { position: relative; padding: 10px; border-radius: 14px; background: #000; box-shadow: 0 0 0 1px var(--line); }
+  .screen { position: relative; width: 100%; aspect-ratio: 800 / 480; overflow: hidden; border-radius: 4px; background: #000; }
+  .screen iframe { position: absolute; top: 0; left: 0; width: 800px; height: 480px; border: 0; transform-origin: 0 0; }
+  .screen .off { position: absolute; inset: 0; display: grid; place-items: center; background: #000; color: var(--muted); }
+  .screen .off[hidden] { display: none; }
+  .caption { margin-top: 8px; color: var(--muted); font-size: 12px; }
+
+  aside { display: grid; gap: 12px; align-content: start; }
+  section { padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+  h2 { margin: 0 0 8px; color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+  select, button { min-height: 34px; border: 1px solid var(--line); border-radius: 7px; background: #10252b; color: var(--text); font: inherit; }
+  select { width: 100%; padding: 0 8px; }
+  button { padding: 0 12px; cursor: pointer; }
+  button:hover { border-color: var(--mint); }
+  .buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+  .summary { margin: 8px 0 0; color: var(--muted); }
+  .notes { margin: 6px 0 0; color: var(--amber); }
+  .facts { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0; }
+  .facts dt { color: var(--muted); }
+  .facts dd { margin: 0; }
+  .yes { color: var(--mint); } .no { color: var(--fault); } .wait { color: var(--amber); }
+  pre { max-height: 300px; margin: 0; overflow: auto; color: #c9dad7; font: 11px/1.35 ui-monospace, Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+</style>
+</head>
+<body>
+<header><h1>PiRadar emulator</h1><span>Rehearse changes before they reach the real Pi</span></header>
+<main>
+  <div>
+    <div class="bezel"><div class="screen" id="screen">
+      <iframe id="device" title="Emulated PiRadar screen"></iframe>
+      <div class="off" id="off" hidden>Switched off. Use "Power on".</div>
+    </div></div>
+    <p class="caption">This is the real PiRadar interface at 800×480. Click it as you would tap the touchscreen. Every emulated Wi-Fi password is <strong id="password"></strong>.</p>
+  </div>
+
+  <aside>
+    <section>
+      <h2>Router scenario</h2>
+      <select id="scenario"></select>
+      <p class="summary" id="summary"></p>
+      <p class="notes" id="notes"></p>
+    </section>
+
+    <section>
+      <h2>Emulated Pi</h2>
+      <dl class="facts">
+        <dt>Board</dt><dd id="board"></dd>
+        <dt>Power</dt><dd id="power"></dd>
+        <dt>Wi-Fi</dt><dd id="wifi"></dd>
+        <dt>Saved Wi-Fi profiles</dt><dd id="profiles"></dd>
+        <dt>Compatibility mode</dt><dd id="compat"></dd>
+        <dt>Restarts</dt><dd id="reboots"></dd>
+        <dt>Software</dt><dd id="software"></dd>
+      </dl>
+    </section>
+
+    <section>
+      <h2>Actions</h2>
+      <div class="buttons">
+        <button data-action="restart">Restart Pi</button>
+        <button data-action="power_on">Power on</button>
+        <button data-action="compat_on">Compat mode on</button>
+        <button data-action="compat_off">Compat mode off</button>
+        <button data-action="forget_wifi">Forget saved Wi-Fi</button>
+        <button data-action="publish">Publish an update</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>System log (journal)</h2>
+      <pre id="journal"></pre>
+    </section>
+  </aside>
+</main>
+
+<script>
+  // Polls the emulator once a second and mirrors its state; buttons post
+  // actions. The device screen reloads whenever the emulated Pi restarts.
+  const $ = (id) => document.getElementById(id);
+  let epoch = null;
+  let scenariosFilled = false;
+
+  // Scale the fixed 800x480 page to whatever width the bezel has.
+  function fitScreen() {
+    const scale = $("screen").clientWidth / 800;
+    $("device").style.transform = `scale(${scale})`;
+  }
+  window.addEventListener("resize", fitScreen);
+
+  function render(state) {
+    if (!scenariosFilled) {
+      for (const [name, summary] of Object.entries(state.scenarios)) {
+        const option = new Option(name, name);
+        option.title = summary;
+        $("scenario").add(option);
+      }
+      scenariosFilled = true;
+    }
+    $("scenario").value = state.scenario;
+    $("summary").textContent = state.summary;
+    $("notes").textContent = state.notes.join(" ");
+    $("password").textContent = state.password;
+    $("board").textContent = state.board;
+    $("power").innerHTML = state.powered ? '<span class="yes">On</span>' : '<span class="no">Off</span>';
+    $("wifi").innerHTML = state.connected ? `<span class="yes">Connected to ${state.connected}</span>` : '<span class="no">Not connected</span> (Ethernet plugged in)';
+    $("profiles").textContent = state.profiles.length ? state.profiles.join(", ") : "none";
+    const compat = state.compat_active ? '<span class="yes">active</span>'
+      : state.compat_saved ? '<span class="wait">saved, needs a restart</span>' : '<span class="no">off</span>';
+    $("compat").innerHTML = compat;
+    $("reboots").textContent = state.reboots;
+    $("software").innerHTML = `${state.installed}` + (state.update_available ? ' · <span class="wait">update available</span>' : "");
+    $("off").hidden = state.powered;
+
+    const journal = $("journal");
+    const atBottom = journal.scrollTop + journal.clientHeight >= journal.scrollHeight - 4;
+    journal.textContent = state.journal.join("\n");
+    if (atBottom) journal.scrollTop = journal.scrollHeight;
+
+    // First load, or the emulated Pi restarted: reload the screen like the kiosk does.
+    if (epoch !== state.screen_epoch) {
+      const first = epoch === null;
+      epoch = state.screen_epoch;
+      setTimeout(() => { $("device").src = state.screen_url; fitScreen(); }, first ? 0 : 1200);
+    }
+  }
+
+  async function poll() {
+    try { render(await (await fetch("/state", { cache: "no-store" })).json()); } catch (error) { /* emulator stopping */ }
+  }
+
+  async function act(action, value) {
+    const response = await fetch("/action", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, value }) });
+    render(await response.json());
+  }
+
+  document.querySelectorAll("[data-action]").forEach((button) => button.addEventListener("click", () => act(button.dataset.action)));
+  $("scenario").addEventListener("change", (event) => { epoch = null; act("scenario", event.target.value); });
+  poll();
+  setInterval(poll, 1000);
+  fitScreen();
+</script>
+</body>
+</html>

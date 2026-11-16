@@ -1,0 +1,11 @@
+# Run every 15 minutes by piradar-update.timer. Installs new commits on the
+# Pi's channel unless automatic updates are switched off on the touchscreen.
+[Unit]
+Description=PiRadar automatic software update
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh /opt/piradar/scripts/update.sh --auto
+TimeoutStartSec=20min

@@ -1,0 +1,11 @@
+// Let the PiRadar service start its own updater from the touchscreen.
+// Only the piradar user, only "start", and only piradar-update.service. The
+// updater itself runs as root under systemd; the app never gains root.
+polkit.addRule(function(action, subject) {
+    if (subject.user === "piradar" &&
+        action.id === "org.freedesktop.systemd1.manage-units" &&
+        action.lookup("unit") === "piradar-update.service" &&
+        action.lookup("verb") === "start") {
+        return polkit.Result.YES;
+    }
+});

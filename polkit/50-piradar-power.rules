@@ -1,0 +1,14 @@
+// Let the PiRadar service shut down or restart the appliance from the
+// touchscreen. Only the piradar user, and only these four logind actions
+// (the "-multiple-sessions" variants apply when the kiosk session is open).
+polkit.addRule(function(action, subject) {
+    var allowed = [
+        "org.freedesktop.login1.power-off",
+        "org.freedesktop.login1.power-off-multiple-sessions",
+        "org.freedesktop.login1.reboot",
+        "org.freedesktop.login1.reboot-multiple-sessions"
+    ];
+    if (subject.user === "piradar" && allowed.indexOf(action.id) !== -1) {
+        return polkit.Result.YES;
+    }
+});

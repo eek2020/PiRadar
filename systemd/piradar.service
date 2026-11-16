@@ -7,6 +7,8 @@ Wants=network-online.target
 Type=simple
 User=piradar
 Group=piradar
+# Read-only access to the system log, for the Wi-Fi Details screen.
+SupplementaryGroups=systemd-journal
 Environment=PIRADAR_CONFIG=/etc/piradar/piradar.json
 Environment=PIRADAR_FRONTEND_DIR=/opt/piradar/frontend
 Environment=PYTHONPATH=/opt/piradar/backend

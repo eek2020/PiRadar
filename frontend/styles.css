@@ -79,13 +79,13 @@ button, label, input { touch-action: manipulation; }
 .military-control:focus, .military-control:hover { outline: 2px solid var(--mint); outline-offset: 2px; }
 .message { position: absolute; inset: 50% auto auto 50%; transform: translate(-50%, -50%); padding: 10px 14px; border: 1px solid var(--line); background: rgba(5,14,17,.9); color: var(--muted); font-size: 12px; letter-spacing: .05em; text-transform: uppercase; }
 .message[hidden] { display: none; }
-.detail, .airport-detail, .options, .filters, .services, .wifi { position: absolute; z-index: 1100; top: 10px; right: 10px; border: 1px solid rgba(125,255,213,.35); border-radius: 12px; background: rgba(7,16,20,.96); box-shadow: 0 12px 36px rgba(0,0,0,.5); pointer-events: auto; touch-action: manipulation; }
+.detail, .airport-detail, .options, .filters, .services, .wifi, .power, .updates { position: absolute; z-index: 1100; top: 10px; right: 10px; border: 1px solid rgba(125,255,213,.35); border-radius: 12px; background: rgba(7,16,20,.96); box-shadow: 0 12px 36px rgba(0,0,0,.5); pointer-events: auto; touch-action: manipulation; }
 .detail { width: 350px; padding: 14px 16px 15px; }
 .airport-detail { width: 320px; padding: 14px 16px 16px; }
 .options, .filters { width: 290px; max-height: calc(100% - 20px); padding: 14px 16px 16px; overflow-y: auto; overscroll-behavior: contain; }
 .services { width: 430px; max-height: calc(100% - 20px); padding: 14px 16px 16px; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; }
 .wifi { width: 430px; max-height: calc(100% - 20px); padding: 14px 16px 16px; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; }
-.detail[hidden], .airport-detail[hidden], .options[hidden], .filters[hidden], .services[hidden], .wifi[hidden] { display: none; }
+.detail[hidden], .airport-detail[hidden], .options[hidden], .filters[hidden], .services[hidden], .wifi[hidden], .power[hidden], .updates[hidden] { display: none; }
 .panel-heading { display: flex; align-items: flex-start; justify-content: space-between; min-height: 45px; gap: 12px; }
 .panel-heading .eyebrow { margin: 0; }
 .panel-heading h2 { margin: 3px 0 0; color: var(--mint); font: 23px ui-monospace, monospace; }
@@ -123,16 +123,23 @@ button, label, input { touch-action: manipulation; }
 .location-entry button:disabled { opacity: .55; }
 .location-status { min-height: 12px; margin: 5px 1px 0; color: var(--muted); font-size: 8px; line-height: 1.4; }
 .location-status[data-state="error"] { color: var(--fault); }
-.postcode-keyboard { position: absolute; z-index: 1400; right: 8px; bottom: 8px; left: 8px; padding: 8px; border: 1px solid rgba(125,255,213,.4); border-radius: 11px; background: rgba(5,14,17,.98); box-shadow: 0 -8px 30px rgba(0,0,0,.58); touch-action: manipulation; }
-.postcode-keyboard[hidden] { display: none; }
-.keyboard-row { display: grid; gap: 5px; margin-top: 5px; }
+/* On-screen keyboards: shared frame and keys */
+.osk { position: absolute; z-index: 1400; right: 8px; bottom: 8px; left: 8px; padding: 6px; border: 1px solid rgba(125,255,213,.4); border-radius: 11px; background: rgba(5,14,17,.98); box-shadow: 0 -8px 30px rgba(0,0,0,.58); touch-action: manipulation; user-select: none; }
+.osk[hidden] { display: none; }
+.keyboard-row { display: grid; gap: 4px; margin-top: 4px; }
 .keyboard-row:first-child { margin-top: 0; }
-.keyboard-numbers, .keyboard-top { grid-template-columns: repeat(10, 1fr); }
-.keyboard-middle { grid-template-columns: repeat(9, 1fr); }
-.keyboard-bottom { grid-template-columns: repeat(11, 1fr); }
-.postcode-keyboard button { min-width: 0; height: 44px; padding: 0; border: 1px solid rgba(125,255,213,.2); border-radius: 6px; background: rgba(255,255,255,.06); color: var(--text); font: 14px ui-monospace, monospace; }
-.postcode-keyboard button:active { border-color: var(--mint); background: rgba(125,255,213,.2); color: white; }
-.postcode-keyboard .keyboard-set { border-color: rgba(125,255,213,.42); background: rgba(125,255,213,.16); color: var(--mint); font-weight: 700; }
+.osk button { position: relative; min-width: 0; padding: 0; border: 1px solid rgba(125,255,213,.2); border-radius: 6px; background: rgba(255,255,255,.06); color: var(--text); font: 14px ui-monospace, monospace; }
+.osk button:active { border-color: var(--mint); background: rgba(125,255,213,.2); color: white; }
+.osk .keyboard-set { border-color: rgba(125,255,213,.42); background: rgba(125,255,213,.16); color: var(--mint); font-weight: 700; }
+/* Postcode pad: fewer, bigger keys */
+.osk-postcode button { height: 46px; font-size: 16px; }
+/* Full keyboard: five rows, shifted symbol shown in the keycap corner */
+.osk-text button { height: 40px; }
+.osk-text .keyboard-mod { color: var(--muted); font-size: 12px; }
+.osk-text button.show-alt::before { content: attr(data-alt); position: absolute; top: 2px; left: 4px; color: var(--muted); font-size: 9px; }
+.osk-text button[aria-pressed="true"] { border-color: var(--mint); background: rgba(125,255,213,.24); color: white; font-weight: 700; }
+/* While a keyboard is up, keep scrolling panels clear of it. */
+body.osk-open .services, body.osk-open .wifi, body.osk-open .options { max-height: calc(100% - 20px - var(--osk-height, 240px)); }
 .choice-row { display: grid; grid-template-columns: 1fr 1fr; padding: 3px; border: 1px solid rgba(125,255,213,.16); border-radius: 8px; background: rgba(255,255,255,.03); }
 .choice-row button { min-height: 46px; border: 0; border-radius: 5px; background: transparent; color: var(--muted); cursor: pointer; }
 .choice-row button[aria-pressed="true"] { background: rgba(125,255,213,.15); color: var(--mint); }
@@ -210,3 +217,68 @@ button, label, input { touch-action: manipulation; }
   .services { right: 8px; left: 8px; width: auto; }
   .wifi { right: 8px; left: 8px; width: auto; }
 }
+
+/* Show / hide password: eye button inside the right-hand end of the box */
+.password-field { position: relative; display: block; }
+.password-field[hidden] { display: none; }
+.password-field input { padding-right: 46px !important; }
+.reveal-toggle { position: absolute; top: 50%; right: 3px; width: 40px; height: 36px; padding: 7px 9px; transform: translateY(-50%); border: 0; border-radius: 5px; background: transparent; color: var(--muted); touch-action: manipulation; }
+.service-card .reveal-toggle { top: calc(50% + 1.5px); height: 30px; padding: 5px 9px; }
+.reveal-toggle svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.reveal-toggle .slash { display: none; }
+.reveal-toggle[aria-pressed="true"] { color: var(--mint); }
+.reveal-toggle[aria-pressed="true"] .slash { display: inline; }
+.reveal-toggle:active { background: rgba(125,255,213,.12); }
+
+/* Power panel */
+.power { width: 320px; padding: 14px 16px 16px; }
+.power-choices { display: grid; gap: 8px; margin-top: 8px; }
+.power-choices[hidden], .power-confirm[hidden] { display: none; }
+.power-choices button { min-height: 56px; padding: 8px 12px; border: 1px solid rgba(125,255,213,.2); border-radius: 8px; background: rgba(125,255,213,.05); color: var(--mint); text-align: left; }
+.power-choices strong, .power-choices small { display: block; }
+.power-choices strong { font-size: 13px; }
+.power-choices small { margin-top: 2px; color: var(--muted); font-size: 10px; }
+.power-confirm { margin-top: 8px; padding: 12px; border: 1px solid rgba(255,125,115,.35); border-radius: 8px; background: rgba(255,125,115,.06); }
+.power-confirm p { margin: 0 0 10px; color: white; font-size: 13px; }
+.power-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.power-actions button { min-width: 96px; min-height: 44px; border: 1px solid rgba(125,255,213,.2); border-radius: 6px; background: transparent; color: var(--muted); font-size: 12px; }
+.power-actions .danger { border-color: rgba(255,125,115,.55); background: rgba(255,125,115,.16); color: var(--fault); font-weight: 700; }
+
+/* Full-screen notice while the Pi shuts down or restarts */
+.power-overlay { position: fixed; z-index: 2000; inset: 0; display: grid; place-items: center; padding: 24px; background: #03090b; text-align: center; }
+.power-overlay[hidden] { display: none; }
+.power-overlay strong { display: block; color: var(--mint); font-size: 20px; letter-spacing: .04em; }
+.power-overlay p { max-width: 420px; margin: 10px auto 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
+
+/* Software update panel */
+.updates { width: 340px; padding: 14px 16px 16px; }
+/* minmax(0, 1fr) stops one long value stretching every row off the screen */
+.update-facts { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; margin: 8px 0 4px; }
+.update-facts div { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; min-width: 0; padding: 7px 10px; border: 1px solid rgba(125,255,213,.14); border-radius: 7px; background: rgba(255,255,255,.02); }
+.update-facts dt { flex: none; color: var(--muted); font-size: 9px; letter-spacing: .06em; text-transform: uppercase; }
+.update-facts dd { flex: 1 1 auto; min-width: 0; margin: 0; overflow: hidden; color: var(--text); font: 11px ui-monospace, monospace; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
+/* The latest update's description wraps (up to two lines) so it can be read in full. */
+.update-facts #update-latest { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; white-space: normal; line-height: 1.35; overflow-wrap: anywhere; }
+.update-actions { display: flex; justify-content: flex-end; gap: 8px; margin: 6px 0 4px; }
+.update-actions button { min-width: 110px; min-height: 44px; border: 1px solid rgba(125,255,213,.2); border-radius: 6px; background: transparent; color: var(--muted); font-size: 12px; }
+.update-actions .primary { border-color: rgba(125,255,213,.42); background: rgba(125,255,213,.16); color: var(--mint); font-weight: 700; }
+.update-actions button:disabled { opacity: .45; }
+
+/* Version line at the foot of Map options */
+.app-version { margin: 12px 0 0; color: var(--muted); font: 9px ui-monospace, monospace; letter-spacing: .04em; text-align: center; }
+.app-version:empty { display: none; }
+
+/* Wi-Fi connection error, shown under the password box */
+.wifi-error { margin: 8px 0 0; padding: 8px 10px; border: 1px solid rgba(255,125,115,.38); border-radius: 7px; background: rgba(255,125,115,.07); color: #ffd2cc; font-size: 11px; line-height: 1.4; }
+.wifi-error[hidden] { display: none; }
+.wifi-error small { display: block; margin-top: 4px; color: var(--muted); font: 9px ui-monospace, monospace; overflow-wrap: anywhere; }
+
+/* "Details" button inside the Wi-Fi error box */
+.wifi-details-button { display: block; margin: 8px 0 0 auto; min-width: 96px; min-height: 36px; border: 1px solid rgba(255,125,115,.45); border-radius: 6px; background: rgba(255,125,115,.12); color: #ffd2cc; font-size: 11px; }
+
+/* Full-screen Wi-Fi diagnostics, small enough that one photo captures it all */
+.wifi-diagnostics { position: fixed; z-index: 2100; inset: 0; display: flex; flex-direction: column; padding: 8px 10px; background: #03090b; }
+.wifi-diagnostics[hidden] { display: none; }
+.wifi-diagnostics-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; color: var(--mint); font-size: 12px; }
+.wifi-diagnostics-head button { min-width: 88px; min-height: 36px; border: 1px solid rgba(125,255,213,.3); border-radius: 6px; background: rgba(125,255,213,.1); color: var(--mint); font-size: 11px; }
+.wifi-diagnostics pre { flex: 1; min-height: 0; margin: 0; overflow: auto; color: #d6e6e3; font: 9px/1.32 ui-monospace, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
