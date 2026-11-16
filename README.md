@@ -176,3 +176,8 @@ security reports, follow [SECURITY.md](SECURITY.md).
 ## Licence
 
 PiRadar is available under the [MIT License](LICENSE).
+
+Civil aircraft map icons are by [ADS-B Radar](https://adsb-radar.com) for macOS
+([App Store](https://apps.apple.com/app/id1538149835)), used under their free
+licence; military silhouettes were made for PiRadar. Sources and terms are in
+[assets/aircraft-icons](assets/aircraft-icons/README.md).
