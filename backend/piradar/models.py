@@ -18,6 +18,7 @@ class Aircraft:
     aircraft_type: str = ""
     category: str = ""
     squawk: str = ""
+    military: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

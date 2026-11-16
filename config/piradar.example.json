@@ -4,6 +4,7 @@
   "home_latitude": 51.5074,
   "home_longitude": -0.1278,
   "range_nm": 60,
+  "military_range_nm": 400,
   "provider": "mock",
   "refresh_seconds": 8,
   "map_tile_url": "https://tile.openstreetmap.org/{z}/{x}/{y}.png"

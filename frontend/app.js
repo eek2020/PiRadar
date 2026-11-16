@@ -15,6 +15,7 @@ const state = {
   keyboardTarget: null,
   keyboardSymbols: false,
   latest: [],
+  militaryOnly: false,
   preferences: {
     mapStyle: "colour",
     aircraftColour: "altitude",
@@ -39,6 +40,7 @@ const elements = {
   optionsControl: document.querySelector("#options-control"),
   filters: document.querySelector("#filters"),
   filterControl: document.querySelector("#filter-control"),
+  militaryControl: document.querySelector("#military-control"),
   services: document.querySelector("#services"),
   wifi: document.querySelector("#wifi"),
   airportDetail: document.querySelector("#airport-detail"),
@@ -97,8 +99,12 @@ function initializeMap() {
   centerHome();
 }
 
+function activeRangeNm() {
+  return state.militaryOnly ? state.config.military_range_nm : state.config.range_nm;
+}
+
 function centerHome() {
-  const latDelta = state.config.range_nm / 60;
+  const latDelta = activeRangeNm() / 60;
   const lonDelta = latDelta / Math.max(Math.cos(state.config.home_latitude * Math.PI / 180), 0.2);
   state.map.fitBounds(
     [
@@ -107,7 +113,8 @@ function centerHome() {
     ],
     { animate: false, padding: [18, 18] },
   );
-  state.map.setZoom(Math.min(state.map.getZoom() + 1, 13), { animate: false });
+  // The local view zooms in one step past the range box; the wide military view does not.
+  if (!state.militaryOnly) state.map.setZoom(Math.min(state.map.getZoom() + 1, 13), { animate: false });
 }
 
 function distanceFromHome(track) {
@@ -252,9 +259,9 @@ function renderAircraft(aircraft) {
 
   const filtering = visibleAircraft.length !== aircraft.length;
   elements.count.textContent = filtering ? `${visibleAircraft.length}/${aircraft.length}` : String(aircraft.length);
-  elements.countLabel.textContent = filtering ? " shown" : " aircraft";
+  elements.countLabel.textContent = filtering ? " shown" : (state.militaryOnly ? " military" : " aircraft");
   elements.message.hidden = visibleAircraft.length > 0;
-  if (!aircraft.length) elements.message.textContent = "No aircraft in range";
+  if (!aircraft.length) elements.message.textContent = state.militaryOnly ? "No military aircraft in range" : "No aircraft in range";
   else if (!visibleAircraft.length) elements.message.textContent = "No aircraft match filters";
 
   if (state.selectedHex) {
@@ -397,7 +404,8 @@ function closeAirportDetail() {
 function renderAirports() {
   if (!state.airportLayer) return;
   state.airportLayer.clearLayers();
-  if (!state.filters.showAirports) return;
+  // Airports cluster into noise at the wide military zoom, so hide them there.
+  if (!state.filters.showAirports || state.militaryOnly) return;
   const includeSmall = state.map.getZoom() >= 9;
   state.airports
     .filter((airport) => includeSmall || airport.type !== "small")
@@ -468,7 +476,7 @@ async function saveTravelLocation() {
     state.history.clear();
     state.latest = [];
     state.homeMarker.setLatLng([state.config.home_latitude, state.config.home_longitude]);
-    elements.range.textContent = String(state.config.range_nm);
+    elements.range.textContent = String(activeRangeNm());
     updateAirportsForLocation();
     centerHome();
     showLocation();
@@ -501,6 +509,38 @@ function loadFilters() {
   } catch (error) {
     console.warn("Could not load filters", error);
   }
+}
+
+function loadMilitaryMode() {
+  try {
+    state.militaryOnly = window.localStorage.getItem("piradar-military") === "true";
+  } catch (error) {
+    console.warn("Could not load military mode", error);
+  }
+}
+
+function applyMilitaryMode() {
+  elements.militaryControl.setAttribute("aria-pressed", String(state.militaryOnly));
+  elements.militaryControl.setAttribute("aria-label", state.militaryOnly ? "Show all aircraft" : "Show military aircraft only");
+  elements.range.textContent = String(activeRangeNm());
+  try {
+    window.localStorage.setItem("piradar-military", String(state.militaryOnly));
+  } catch (error) {
+    console.warn("Could not save military mode", error);
+  }
+}
+
+function toggleMilitaryMode() {
+  state.militaryOnly = !state.militaryOnly;
+  applyMilitaryMode();
+  if (!state.map) return;
+  clearSelection();
+  renderAircraft([]);
+  elements.message.hidden = false;
+  elements.message.textContent = state.militaryOnly ? "Loading military aircraft…" : "Loading aircraft…";
+  centerHome();
+  renderAirports();
+  updateAircraft();
 }
 
 function filtersActive() {
@@ -748,10 +788,13 @@ async function updateService(card, clear = false) {
 }
 
 async function updateAircraft() {
+  const military = state.militaryOnly;
   try {
-    const response = await fetch("/api/aircraft", { cache: "no-store" });
+    const response = await fetch(military ? "/api/aircraft?military=1" : "/api/aircraft", { cache: "no-store" });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const snapshot = await response.json();
+    // Drop a response that was requested before the military toggle changed.
+    if (military !== state.militaryOnly) return;
     renderAircraft(snapshot.aircraft);
     elements.attribution.textContent = snapshot.source === "adsb.lol"
       ? "Data © adsb.lol · ODbL · not for navigation"
@@ -780,8 +823,9 @@ async function start() {
     const response = await fetch("/api/config", { cache: "no-store" });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     state.config = await response.json();
-    elements.range.textContent = String(state.config.range_nm);
     showLocation();
+    loadMilitaryMode();
+    applyMilitaryMode();
     loadPreferences();
     loadFilters();
     applyPreferences();
@@ -821,6 +865,7 @@ document.querySelectorAll(".service-card [data-action]").forEach((button) => {
   button.addEventListener("click", () => updateService(button.closest(".service-card"), button.dataset.action === "clear"));
 });
 elements.filterControl.addEventListener("click", () => elements.filters.hidden ? openFilters() : closeFilters());
+elements.militaryControl.addEventListener("click", toggleMilitaryMode);
 document.querySelector("#close-filters").addEventListener("click", closeFilters);
 document.querySelectorAll(".choice-row button").forEach((button) => {
   button.addEventListener("click", () => {

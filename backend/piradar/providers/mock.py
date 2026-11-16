@@ -8,6 +8,9 @@ from piradar.aircraft_types import describe_aircraft_type, describe_operator
 from piradar.models import Aircraft
 
 
+MILITARY_HEXES = frozenset({"43C6F2"})
+
+
 class MockAircraftProvider:
     """Deterministic moving tracks for UI development and offline demos."""
 
@@ -24,7 +27,7 @@ class MockAircraftProvider:
     def healthy(self) -> bool:
         return True
 
-    def aircraft(self) -> list[Aircraft]:
+    def aircraft(self, military: bool = False) -> list[Aircraft]:
         now = time.time()
         definitions = (
             ("406A91", "BAW216", "G-EUYA", "A320", 0.18, 245, 33000, 468, 900),
@@ -32,6 +35,7 @@ class MockAircraftProvider:
             ("400F2B", "EZY48M", "G-EZAA", "A319", 0.46, 155, 9200, 246, 1200),
             ("4841A5", "KLM1017", "PH-EXA", "E190", 0.62, 25, 28100, 438, 0),
             ("3C64F6", "DLH7JM", "D-AIDI", "A321", 0.77, 298, 36500, 482, -128),
+            ("43C6F2", "RRR4402", "ZM402", "A400", 0.54, 210, 14000, 290, 0),
         )
         tracks: list[Aircraft] = []
         for index, (hex_code, callsign, registration, aircraft_type, radius, bearing, altitude, speed, climb) in enumerate(definitions):
@@ -54,8 +58,11 @@ class MockAircraftProvider:
                     aircraft_type=aircraft_type,
                     category="A3",
                     squawk="7000",
+                    military=hex_code in MILITARY_HEXES,
                 )
             )
+        if military:
+            return [track for track in tracks if track.military]
         return tracks
 
     def details(self, hex_code: str) -> dict[str, Any] | None:

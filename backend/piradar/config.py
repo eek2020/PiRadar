@@ -14,6 +14,7 @@ class Config:
     home_latitude: float = 51.5074
     home_longitude: float = -0.1278
     range_nm: int = 60
+    military_range_nm: int = 400
     provider: str = "mock"
     refresh_seconds: int = 8
     map_tile_url: str = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -33,6 +34,7 @@ class Config:
             "home_latitude": os.getenv("PIRADAR_HOME_LATITUDE"),
             "home_longitude": os.getenv("PIRADAR_HOME_LONGITUDE"),
             "range_nm": os.getenv("PIRADAR_RANGE_NM"),
+            "military_range_nm": os.getenv("PIRADAR_MILITARY_RANGE_NM"),
             "provider": os.getenv("PIRADAR_PROVIDER"),
             "refresh_seconds": os.getenv("PIRADAR_REFRESH_SECONDS"),
             "map_tile_url": os.getenv("PIRADAR_MAP_TILE_URL"),
@@ -40,7 +42,7 @@ class Config:
         }
         values.update({key: value for key, value in environment.items() if value is not None})
 
-        for key in ("port", "range_nm", "refresh_seconds"):
+        for key in ("port", "range_nm", "military_range_nm", "refresh_seconds"):
             if key in values:
                 values[key] = int(values[key])
         for key in ("home_latitude", "home_longitude"):
@@ -60,6 +62,8 @@ class Config:
             raise ValueError("home_longitude must be between -180 and 180")
         if not 1 <= self.range_nm <= 250:
             raise ValueError("range_nm must be between 1 and 250")
+        if not 1 <= self.military_range_nm <= 1500:
+            raise ValueError("military_range_nm must be between 1 and 1500")
         if self.provider not in {"mock", "adsb_lol"}:
             raise ValueError(f"unsupported provider: {self.provider}")
         if not 2 <= self.refresh_seconds <= 60:

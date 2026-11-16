@@ -34,6 +34,13 @@ class ConfigTests(unittest.TestCase):
     def test_accepts_live_provider(self) -> None:
         Config(provider="adsb_lol").validate()
 
+    def test_military_range_default_and_bounds(self) -> None:
+        self.assertEqual(Config().military_range_nm, 400)
+        with patch.dict(os.environ, {"PIRADAR_MILITARY_RANGE_NM": "250"}, clear=True):
+            self.assertEqual(Config.load().military_range_nm, 250)
+        with self.assertRaisesRegex(ValueError, "military_range_nm"):
+            Config(military_range_nm=0).validate()
+
     def test_rejects_unsafe_tile_url(self) -> None:
         with self.assertRaisesRegex(ValueError, "map_tile_url"):
             Config(map_tile_url="http://tiles.example/{z}/{x}/{y}.png").validate()

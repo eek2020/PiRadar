@@ -74,6 +74,9 @@ button, label, input { touch-action: manipulation; }
 .filter-control svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-linejoin: round; stroke-width: 1.8; }
 .filter-control[data-active="true"] { border-color: var(--mint); color: var(--mint); box-shadow: 0 0 0 2px rgba(125,255,213,.15), 0 4px 18px rgba(0,0,0,.35); }
 .filter-control:focus, .filter-control:hover { outline: 2px solid var(--mint); outline-offset: 2px; }
+.military-control { position: absolute; z-index: 1000; top: 12px; right: 124px; min-width: 58px; height: 46px; padding: 0 12px; border: 1px solid rgba(255,255,255,.35); border-radius: 23px; background: rgba(8,16,18,.88); box-shadow: 0 4px 18px rgba(0,0,0,.35); color: white; font: 700 14px ui-monospace, monospace; letter-spacing: .08em; cursor: pointer; touch-action: manipulation; }
+.military-control[aria-pressed="true"] { border-color: #ffc56e; background: rgba(60,42,8,.92); color: #ffc56e; box-shadow: 0 0 0 2px rgba(255,197,110,.2), 0 4px 18px rgba(0,0,0,.35); }
+.military-control:focus, .military-control:hover { outline: 2px solid var(--mint); outline-offset: 2px; }
 .message { position: absolute; inset: 50% auto auto 50%; transform: translate(-50%, -50%); padding: 10px 14px; border: 1px solid var(--line); background: rgba(5,14,17,.9); color: var(--muted); font-size: 12px; letter-spacing: .05em; text-transform: uppercase; }
 .message[hidden] { display: none; }
 .detail, .airport-detail, .options, .filters, .services, .wifi { position: absolute; z-index: 1100; top: 10px; right: 10px; border: 1px solid rgba(125,255,213,.35); border-radius: 12px; background: rgba(7,16,20,.96); box-shadow: 0 12px 36px rgba(0,0,0,.5); pointer-events: auto; touch-action: manipulation; }

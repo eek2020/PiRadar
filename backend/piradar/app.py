@@ -9,7 +9,7 @@ import os
 from pathlib import Path
 import threading
 from typing import Any, Type
-from urllib.parse import unquote, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 from piradar import __version__
 from piradar.config import Config
@@ -35,6 +35,7 @@ def build_provider(
             centre_longitude,
             config.range_nm,
             config.refresh_seconds,
+            military_range_nm=config.military_range_nm,
             cache=cache,
         )
     raise ValueError(f"unsupported provider: {config.provider}")
@@ -103,7 +104,8 @@ def build_handler(
         server_version = f"PiRadar/{__version__}"
 
         def do_GET(self) -> None:  # noqa: N802 - stdlib handler API
-            path = urlparse(self.path).path
+            parsed = urlparse(self.path)
+            path = parsed.path
             if path == "/api/health":
                 provider = runtime.provider
                 self._json(
@@ -135,9 +137,11 @@ def build_handler(
                 return
             if path == "/api/aircraft":
                 provider = runtime.provider
-                aircraft = [track.to_dict() for track in provider.aircraft()]
+                military = parse_qs(parsed.query).get("military") == ["1"]
+                aircraft = [track.to_dict() for track in provider.aircraft(military=military)]
                 self._json(
                     {
+                        "military": military,
                         "generated_at": datetime.now(UTC).isoformat(),
                         "source": provider.name,
                         "status": provider.status,

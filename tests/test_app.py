@@ -93,6 +93,13 @@ class AppTests(unittest.TestCase):
         self.assertIn("callsign", snapshot["aircraft"][0])
         self.assertIn("aircraft_type", snapshot["aircraft"][0])
 
+    def test_military_aircraft_snapshot(self) -> None:
+        snapshot = self.get_json("/api/aircraft?military=1")
+        self.assertTrue(snapshot["military"])
+        self.assertGreater(len(snapshot["aircraft"]), 0)
+        self.assertTrue(all(track["military"] for track in snapshot["aircraft"]))
+        self.assertFalse(self.get_json("/api/aircraft")["military"])
+
     def test_aircraft_details(self) -> None:
         details = self.get_json("/api/aircraft/406A91")
         self.assertEqual(details["manufacturer"], "Airbus")
@@ -106,6 +113,7 @@ class AppTests(unittest.TestCase):
         self.assertIn('id="detail-distance"', body)
         self.assertIn('id="options-control"', body)
         self.assertIn('id="filter-control"', body)
+        self.assertIn('id="military-control"', body)
         self.assertIn('id="detail-type"', body)
         self.assertIn('id="open-services"', body)
         self.assertIn('id="open-wifi"', body)
