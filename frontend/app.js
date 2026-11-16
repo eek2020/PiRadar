@@ -181,7 +181,7 @@ function aircraftIcon(track, selected) {
     className: `aircraft-marker ${family}${selected ? " selected" : ""}`,
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
-    html: `<svg viewBox="0 0 32 32" aria-hidden="true" style="--aircraft-color:${altitudeColour(track)};transform:rotate(${rotation}deg)">${PiRadarIcons.markup(family)}</svg>${label}`,
+    html: `<svg viewBox="${PiRadarIcons.viewBox(family)}" aria-hidden="true" style="--aircraft-color:${altitudeColour(track)};transform:rotate(${rotation}deg)">${PiRadarIcons.markup(family)}</svg>${label}`,
   });
 }
 

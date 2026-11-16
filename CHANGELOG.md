@@ -13,7 +13,7 @@ All notable changes will be documented here. The project follows [Semantic Versi
 - Tests, CI, systemd and installation scaffolding
 - Live adsb.lol provider with caching and stale/offline recovery
 - Full-screen geographic aircraft map with touch-sized controls and selectable telemetry
-- Aircraft drawn by type: 16 silhouette families (e.g. Typhoon delta, F-35, C-17, A400M, Chinook, Osprey, Reaper), sized by class; ICAO type codes are classified on the Pi with a category fallback
+- Aircraft drawn by type: specific silhouettes for airliners (A320, A330, A340, A380, 737, 747, 767, 777, 787, E-Jets, CRJ, Dash 8 and more), business jets and light aircraft (icons by ADS-B Radar, https://adsb-radar.com), plus PiRadar's own military set (Typhoon, Rafale, F-35, Hawk, Apache, Merlin, Chinook, C-130, C-17, A400M, Osprey); chosen on the Pi from the ICAO type code with an emitter-category fallback, sized by class
 - Settings panels open as a centred, larger dialog over a dimmed map, with touch-sized text and controls; tap the map to close
 - Jets whose type codes start with H (Hawk, Hawker 800, HondaJet) no longer draw as helicopters
 - MIL button showing only military aircraft from adsb.lol's military feed, within `military_range_nm` (default 400 NM); the commercial feed is not fetched while it is on
