@@ -6,11 +6,12 @@ Rehearse a change on an emulated Pi before it is pushed, and so before it reache
 ./emulate                         # the neighbour scenario (default)
 ./emulate --scenario wpa3-mixed   # pick a scenario
 ./emulate --list                  # list scenarios
+./emulate --live                  # real aircraft from adsb.lol instead of mock data
 ```
 
 It opens a page in your browser. On the left is the **real PiRadar interface** at 800×480, served by the real backend from this checkout; click it as you would tap the touchscreen. On the right is the control panel: the router scenario, the emulated Pi's state, actions, and its system log. Every emulated Wi-Fi network uses the password `radar-test-1`. Stop it with Ctrl+C; all emulated state lives in a temporary folder that is deleted on exit.
 
-Needs Python 3.11 or newer. macOS's built-in `python3` is often older; `./emulate` looks for `python3.13`, `python3.12` and `python3.11` first, and tells you how to install one if none is found. Nothing else needs installing. Map tiles load from OpenStreetMap, so the screen needs an internet connection; aircraft are mock data.
+Needs Python 3.11 or newer. macOS's built-in `python3` is often older; `./emulate` looks for `python3.13`, `python3.12` and `python3.11` first, and tells you how to install one if none is found. Nothing else needs installing. Map tiles load from OpenStreetMap, so the screen needs an internet connection; aircraft are mock data unless you pass `--live`, which uses the real adsb.lol feeds (local and MIL) exactly as a Pi does.
 
 ## What is real and what is emulated
 

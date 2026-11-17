@@ -128,6 +128,23 @@ class AdsbLolProviderTests(unittest.TestCase):
         self.assertTrue(urls[-1].startswith("https://api.adsb.lol/v2/lat/"))
         self.assertEqual(sum("/v2/mil" in url for url in urls), 1)
 
+    def test_military_range_applies_before_display_cap(self) -> None:
+        # The worldwide feed lists hundreds of US airframes ahead of UK ones.
+        far = [
+            {"hex": f"ae{i:04x}", "lat": 40.0, "lon": -75.0, "dbFlags": 1} for i in range(300)
+        ]
+        near = {"hex": "43c8f2", "flight": "ASCOT1", "lat": 52.6, "lon": -1.2, "dbFlags": 1}
+        payload = {"ac": [*far, near]}
+        provider = AdsbLolProvider(
+            52.2,
+            -0.9,
+            50,
+            military_range_nm=400,
+            opener=lambda request, timeout: FakeResponse(payload),
+            monotonic=lambda: self.now,
+        )
+        self.assertEqual([track.hex for track in provider.aircraft(military=True)], ["43C8F2"])
+
     def test_caches_successful_response(self) -> None:
         provider = self.provider()
         provider.aircraft()

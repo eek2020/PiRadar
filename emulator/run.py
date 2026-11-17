@@ -8,6 +8,7 @@ with NetworkManager, systemd, the system log and the boot files emulated by
     ./emulate                       # default scenario (your neighbour's symptom)
     ./emulate --scenario wpa3-mixed
     ./emulate --list                # show the scenarios
+    ./emulate --live                # real aircraft from adsb.lol instead of mock data
 
 Opens a control page in the browser: the emulated 800x480 screen on the
 left, and on the right the scenario, restart / power buttons, Wi-Fi
@@ -56,8 +57,9 @@ CONTROL_PAGE = Path(__file__).with_name("control.html")
 class Emulator:
     """Holds the emulated Pi and the real PiRadar server running on top of it."""
 
-    def __init__(self, scenario: str, port: int) -> None:
+    def __init__(self, scenario: str, port: int, *, live: bool = False) -> None:
         self.port = port
+        self.provider = "adsb_lol" if live else "mock"
         self.folder = tempfile.TemporaryDirectory(prefix="piradar-emulator-")
         self.server: ThreadingHTTPServer | None = None
         self.load(scenario)
@@ -82,7 +84,7 @@ class Emulator:
             fetch=self.pi.github,
             runner=self.pi.runner,
         )
-        config = Config(port=self.port, provider="mock", state_dir=str(root / "state"))
+        config = Config(port=self.port, provider=self.provider, state_dir=str(root / "state"))
         self.server = create_server(
             config,
             frontend_dir=ROOT / "frontend",
@@ -180,6 +182,7 @@ def main() -> None:
     parser.add_argument("--scenario", default="neighbour", choices=sorted(SCENARIOS))
     parser.add_argument("--port", type=int, default=8090, help="port for the emulated screen (control page uses port+1)")
     parser.add_argument("--list", action="store_true", help="list the scenarios and exit")
+    parser.add_argument("--live", action="store_true", help="show real aircraft from adsb.lol instead of mock data")
     parser.add_argument("--no-browser", action="store_true", help="do not open the browser")
     args = parser.parse_args()
 
@@ -188,10 +191,11 @@ def main() -> None:
             print(f"{name:12} {scenario.summary}")
         return
 
-    emulator = Emulator(args.scenario, args.port)
+    emulator = Emulator(args.scenario, args.port, live=args.live)
     control = ThreadingHTTPServer(("127.0.0.1", args.port + 1), control_handler(emulator))
     url = f"http://127.0.0.1:{args.port + 1}/"
     print(f"PiRadar emulator running: {url}")
+    print(f"Aircraft: {'live from adsb.lol' if args.live else 'mock data'}.")
     print(f"Scenario: {args.scenario}. Every emulated Wi-Fi password is {PASSWORD}. Ctrl+C to stop.")
     if not args.no_browser:
         webbrowser.open(url)

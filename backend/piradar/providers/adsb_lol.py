@@ -20,6 +20,8 @@ from piradar.storage import EnrichmentCache
 # readsb/adsb.lol database flag bit for military airframes.
 MILITARY_FLAG = 1
 MILITARY_URL = "https://api.adsb.lol/v2/mil"
+# Most tracks sent to the display per refresh.
+MAX_TRACKS = 250
 REQUEST_HEADERS = {
     "Accept": "application/json",
     # Compressed responses are roughly 4-5x smaller, which matters most on 4G.
@@ -96,25 +98,34 @@ class AdsbLolProvider:
 
             try:
                 tracks = self._normalize(self._fetch_json(feed.url, timeout=12))
-                if military:
-                    tracks = [
-                        track
-                        for track in tracks
-                        if distance_nm(
-                            self.home_latitude,
-                            self.home_longitude,
-                            track.latitude,
-                            track.longitude,
-                        )
-                        <= self.military_range_nm
-                    ]
-                feed.aircraft = tracks
+                feed.aircraft = self._nearest(tracks, military)
                 feed.has_succeeded = True
                 feed.last_error = None
             except (AttributeError, OSError, ValueError, TypeError, KeyError) as error:
                 feed.last_error = f"{type(error).__name__}: {error}"
 
             return list(feed.aircraft)
+
+    def _nearest(self, tracks: list[Aircraft], military: bool) -> list[Aircraft]:
+        """Trim to range and the display cap, keeping military and the closest.
+
+        The military feed is worldwide and listed in hex order, so UK and
+        European airframes come after hundreds of US ones. Ranging must happen
+        before the cap or they are cut off whenever the feed is busy.
+        """
+        ranged = [
+            (
+                distance_nm(
+                    self.home_latitude, self.home_longitude, track.latitude, track.longitude
+                ),
+                track,
+            )
+            for track in tracks
+        ]
+        if military:
+            ranged = [item for item in ranged if item[0] <= self.military_range_nm]
+        ranged.sort(key=lambda item: (not item[1].military, item[0]))
+        return [track for _, track in ranged[:MAX_TRACKS]]
 
     def _cached_track(self, hex_code: str) -> Aircraft | None:
         with self._lock:
@@ -165,9 +176,7 @@ class AdsbLolProvider:
                     military=bool(int(cls._number(item.get("dbFlags"), 0) or 0) & MILITARY_FLAG),
                 )
             )
-        # Keep military tracks if a busy area exceeds the display cap.
-        normalized.sort(key=lambda track: not track.military)
-        return normalized[:250]
+        return normalized
 
     def details(self, hex_code: str) -> dict[str, Any] | None:
         normalized_hex = hex_code.strip().upper()
